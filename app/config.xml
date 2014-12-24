@@ -1,0 +1,12 @@
+<?xml version='1.0' encoding='utf-8'?>
+<widget id="jimy.cordova.rainyday" version="0.0.1" xmlns="http://www.w3.org/ns/widgets" xmlns:cdv="http://cordova.apache.org/ns/1.0">
+    <name>Rainyday</name>
+    <description>
+        A cordova based hybrid mobile application written in nodejs with browserify, react and hammerjs.
+    </description>
+    <author email="attila.kling@gmail.com" href="http://jim-y.me">
+        Jim-Y
+    </author>
+    <content src="index.html" />
+    <access origin="*" />
+</widget>

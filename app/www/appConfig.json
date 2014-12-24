@@ -1,0 +1,6 @@
+{
+	"openweathermap": {
+		"key": "1b533682c2d0b240da7e0151057b331b",
+		"baseUrl": "api.openweathermap.org/data/2.5/weather?"
+	}
+}

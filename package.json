@@ -1,0 +1,60 @@
+{
+  "name": "rainyday",
+  "version": "1.0.0",
+  "description": "A cordova based hybrid mobile application written in nodejs with browserify, react and hammerjs.",
+  "main": "app/www/js/app.js",
+  "scripts": {
+    "serve": "cd app/ && echo 'RUN IN BROWSER -> http://localhost:8080/android/www/' && cordova serve 8080",
+    "start": "watchify app/www/js/app.js -o app/www/js/rainyday.bundle.js -v -d",
+    "lint": "jsxhint -c .jshintrc app/www/js/**/*",
+    "dist": "browserify app/www/js/app.js > app/www/js/rainyday.bundle.js",
+    "deploy": "cd app/ && cordova build android && cordova run"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jim-y/cordova.rainyday"
+  },
+  "keywords": [
+    "cordova",
+    "phonegap",
+    "hybrid",
+    "mobile",
+    "nodejs",
+    "browserify",
+    "react",
+    "flux",
+    "hammerjs"
+  ],
+  "author": "Jim-y",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/jim-y/cordova.rainyday/issues"
+  },
+  "homepage": "https://github.com/jim-y/cordova.rainyday",
+  "dependencies": {
+    "browserify": "^8.0.1",
+    "cordova": "^4.1.2",
+    "flux": "^2.0.1",
+    "hammerjs": "^2.0.4",
+    "immutable": "^3.4.1",
+    "react": "^0.12.2",
+    "superagent": "^0.21.0"
+  },
+  "devDependencies": {
+    "reactify": "^0.17.1",
+    "uglify": "^0.1.1",
+    "react-tools": "^0.12.2",
+    "jsxhint": "^0.9.0",
+    "watchify": "^2.2.1"
+  },
+  "browserify": {
+    "transform": [
+      [
+        "reactify",
+        {
+          "es6": true
+        }
+      ]
+    ]
+  }
+}
