@@ -30,5 +30,6 @@ test
 
 .DS_Store
 app/platforms/android
+app/platforms/plugins
 .idea
 npm-debug.log
