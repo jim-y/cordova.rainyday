@@ -28,8 +28,11 @@ test
 # Users Environment Variables
 .lock-wscript
 
+# Application specific
+app/www/css/style.css
+
 .DS_Store
 app/platforms/android
-app/platforms/plugins
+app/plugins
 .idea
 npm-debug.log

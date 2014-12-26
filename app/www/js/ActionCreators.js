@@ -1,17 +1,12 @@
 'use strict';
 
-var AppDispatcher = require('../AppDispatcher'),
-    AppConstants = require('../AppConstants'),
-    Actions;
+var AppDispatcher = require('./AppDispatcher');
 
-Actions = {
-  initialize: function(location) {
-    var datas = require('../../statics/paradigms.json');
+module.exports = {
+  fire: function(type, payload) {
     AppDispatcher.dispatch({
-      type: AppConstants.ACTION_TYPES.INITIALIZE,
-      payload: datas
+      type: type,
+      payload: payload
     });
   }
 };
-
-module.exports = Actions;

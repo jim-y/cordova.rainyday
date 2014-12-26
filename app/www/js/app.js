@@ -1,9 +1,10 @@
 'use strict';
 
 var React = require('react'),
-    App = React.createFactory(require('./components/MainComponent.jsx')),
-    config = require('../appConfig.json'),
-    request = require('superagent');
+  request = require('superagent'),
+  injectTapEventPlugin = require('react-tap-event-plugin'),
+  App = React.createFactory(require('./components/AppComponent.jsx')),
+  config = require('../appConfig.json');
 
 /**
  * For React Chrome addon
@@ -22,7 +23,7 @@ function onRenderError(err) {
 
 /**
  * Success callback for weather api call. On succes we render the app to the DOM
- * @param  {Object}
+ * @param  {Object} resp
  */
 function onSuccessWeatherCall(resp) {
   React.render(
@@ -30,14 +31,14 @@ function onSuccessWeatherCall(resp) {
       config: config,
       data: resp.body
     }),
-    document.getElementById('content'),
+    document.getElementById('container'),
     onRenderError
   );
 }
 
 /**
  * Callback method for successful geoLocation call.
- * @param  {Object}
+ * @param  {Object} position
  */
 function onGeoLocationSuccess(position) {
   var url,
@@ -45,34 +46,15 @@ function onGeoLocationSuccess(position) {
       lon;
 
   if (position && position.coords.latitude && position.coords.longitude) {
-    
+
     lat = 'lat=' + position.coords.latitude;
     lon = 'lon=' + position.coords.longitude;
-    url = [
-      'http://',
-      config.openweathermap.baseUrl,
-      lat,
-      '&',
-      lon,
-      '&APPID=',
-      config.openweathermap.key
-    ].join('');
+    url = ['http://', config.openweathermap.baseUrl, lat, '&', lon,
+      '&APPID=', config.openweathermap.key].join('');
 
     console.log(position);
-    console.log(
-      'Latitude: '          + position.coords.latitude          + '\n' +
-      'Longitude: '         + position.coords.longitude         + '\n' +
-      'Altitude: '          + position.coords.altitude          + '\n' +
-      'Accuracy: '          + position.coords.accuracy          + '\n' +
-      'Altitude Accuracy: ' + position.coords.altitudeAccuracy  + '\n' +
-      'Heading: '           + position.coords.heading           + '\n' +
-      'Speed: '             + position.coords.speed             + '\n' +
-      'Timestamp: '         + position.timestamp                + '\n'
-    );
 
-    request
-     .get(url)
-     .end(onSuccessWeatherCall);
+    request.get(url, null, onSuccessWeatherCall);
   }
 }
 
@@ -88,9 +70,9 @@ function onGeoLocationError(err) {
 /**
  * Initialize the application. Renders main react component into DOM.
  * Also pass config as variable for the top level component.
- * @param  {Event}
  */
-function initialize(event) {
+function initialize(/* event */) {
+  injectTapEventPlugin();
   navigator.geolocation.getCurrentPosition(
     onGeoLocationSuccess,
     onGeoLocationError

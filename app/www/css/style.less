@@ -1,0 +1,76 @@
+@import "node_modules/material-ui/src/less/scaffolding.less";
+@import "node_modules/material-ui/src/less/components.less";
+
+@header-height: 44px;
+@footer-height: @header-height;
+@weatherIconSize: 128px;
+@test: 44;
+
+* {
+  margin: 0;
+}
+html {
+  position: relative;
+  min-height: 100%;
+}
+body {
+  background-color: @grey-50;
+}
+header {
+  height: @header-height;
+  background-color: @pink-600;
+
+  #previousPage, #menuIcon {
+    padding: 10px;
+  }
+}
+footer {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: @footer-height;
+  width: 100%;
+
+  #nextPage, .fakeIcon {
+    padding: 10px;
+  }
+  .fakeIcon {
+    visibility: hidden;
+  }
+}
+header, footer {
+  .iconWrapper {
+    display: inline-block;
+    width: 50%;
+  }
+  .iconWrapper.navIconWrapper {
+    margin-left: -(@header-height/2);
+  }
+}
+
+#centered {
+  display: table-cell;
+  vertical-align: middle;
+
+  .pictureWrapper {
+    margin: @header-height auto @header-height auto;
+    width: @weatherIconSize;
+    height: @weatherIconSize;
+
+    img {
+      width: @weatherIconSize;
+      height: @weatherIconSize;
+    }
+  }
+}
+
+#content {
+  display: table;
+  height: 100%;
+  width: 100%;
+
+  section {
+    margin: auto auto;
+    width: 70%
+  }
+}

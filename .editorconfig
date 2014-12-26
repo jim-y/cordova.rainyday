@@ -17,18 +17,8 @@ indent_size = 4
 [*.js]
 indent_style = tab
 
-# Indentation settings for index.html
-[{app/www/index.html}]
-indent_style = space
-indent_size = 2
-
-# Gruntfile
-[Gruntfile.js]
-indent_style = space
-indent_size = 2
-
 # Indentation override for all JS under lib directory
-[{app/www/**.js,app/www/**.jsx}]
+[app/www/**/*.{html,js,json,jsx}]
 indent_style = space
 indent_size = 2
 

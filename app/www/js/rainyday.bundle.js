@@ -9,27 +9,43 @@ module.exports={
 },{}],2:[function(require,module,exports){
 'use strict';
 
+var AppDispatcher = require('./AppDispatcher');
+
 module.exports = {
-  ACTION_TYPES: {
-    INITIALIZE: 'INITIALIZE'
+  fire: function(type, payload) {
+    AppDispatcher.dispatch({
+      type: type,
+      payload: payload
+    });
+  }
+};
+
+},{"./AppDispatcher":4}],3:[function(require,module,exports){
+'use strict';
+
+module.exports = {
+  NAVIGATION: {
+    OPEN: 'OPEN',
+    CLOSE: 'CLOSE'
   },
   CHANGE_EVENT: 'change'
 };
 
-},{}],3:[function(require,module,exports){
+},{}],4:[function(require,module,exports){
 'use strict';
 
 var AppDispatcher = require('flux').Dispatcher;
 
 module.exports = new AppDispatcher();
 
-},{"flux":9}],4:[function(require,module,exports){
+},{"flux":18}],5:[function(require,module,exports){
 'use strict';
 
 var React = require('react'),
-    App = React.createFactory(require('./components/MainComponent.jsx')),
-    config = require('../appConfig.json'),
-    request = require('superagent');
+  request = require('superagent'),
+  injectTapEventPlugin = require('react-tap-event-plugin'),
+  App = React.createFactory(require('./components/AppComponent.jsx')),
+  config = require('../appConfig.json');
 
 /**
  * For React Chrome addon
@@ -48,7 +64,7 @@ function onRenderError(err) {
 
 /**
  * Success callback for weather api call. On succes we render the app to the DOM
- * @param  {Object}
+ * @param  {Object} resp
  */
 function onSuccessWeatherCall(resp) {
   React.render(
@@ -56,14 +72,14 @@ function onSuccessWeatherCall(resp) {
       config: config,
       data: resp.body
     }),
-    document.getElementById('content'),
+    document.getElementById('container'),
     onRenderError
   );
 }
 
 /**
  * Callback method for successful geoLocation call.
- * @param  {Object}
+ * @param  {Object} position
  */
 function onGeoLocationSuccess(position) {
   var url,
@@ -71,34 +87,15 @@ function onGeoLocationSuccess(position) {
       lon;
 
   if (position && position.coords.latitude && position.coords.longitude) {
-    
+
     lat = 'lat=' + position.coords.latitude;
     lon = 'lon=' + position.coords.longitude;
-    url = [
-      'http://',
-      config.openweathermap.baseUrl,
-      lat,
-      '&',
-      lon,
-      '&APPID=',
-      config.openweathermap.key
-    ].join('');
+    url = ['http://', config.openweathermap.baseUrl, lat, '&', lon,
+      '&APPID=', config.openweathermap.key].join('');
 
     console.log(position);
-    console.log(
-      'Latitude: '          + position.coords.latitude          + '\n' +
-      'Longitude: '         + position.coords.longitude         + '\n' +
-      'Altitude: '          + position.coords.altitude          + '\n' +
-      'Accuracy: '          + position.coords.accuracy          + '\n' +
-      'Altitude Accuracy: ' + position.coords.altitudeAccuracy  + '\n' +
-      'Heading: '           + position.coords.heading           + '\n' +
-      'Speed: '             + position.coords.speed             + '\n' +
-      'Timestamp: '         + position.timestamp                + '\n'
-    );
 
-    request
-     .get(url)
-     .end(onSuccessWeatherCall);
+    request.get(url, null, onSuccessWeatherCall);
   }
 }
 
@@ -114,9 +111,9 @@ function onGeoLocationError(err) {
 /**
  * Initialize the application. Renders main react component into DOM.
  * Also pass config as variable for the top level component.
- * @param  {Event}
  */
-function initialize(event) {
+function initialize(/* event */) {
+  injectTapEventPlugin();
   navigator.geolocation.getCurrentPosition(
     onGeoLocationSuccess,
     onGeoLocationError
@@ -128,27 +125,66 @@ function initialize(event) {
  */
 document.addEventListener('deviceready', initialize, false);
 
-},{"../appConfig.json":1,"./components/MainComponent.jsx":5,"react":158,"superagent":159}],5:[function(require,module,exports){
+},{"../appConfig.json":1,"./components/AppComponent.jsx":7,"react":226,"react-tap-event-plugin":64,"superagent":227}],6:[function(require,module,exports){
+'use strict';
+
+var MenuItem = require('material-ui').MenuItem;
+
+module.exports = [
+  {
+    route: 'get-started',
+    text: 'Get Started'
+  },
+  {
+    route: 'css-framework',
+    text: 'CSS Framework'
+  },
+  {
+    route: 'components',
+    text: 'Components'
+  },
+  {
+    type: MenuItem.Types.SUBHEADER,
+    text: 'Resources'
+  },
+  {
+    type: MenuItem.Types.LINK,
+    payload: 'https://github.com/callemall/material-ui',
+    text: 'GitHub'
+  }
+];
+
+},{"material-ui":25}],7:[function(require,module,exports){
 'use strict';
 
 var React = require('react'),
-    AppConstants = require('../AppConstants'),
-    WeatherStore = require('../stores/WeatherStore');
+  Hammer = require('hammerjs'),
+  AppConstants = require('../AppConstants'),
+  ActionCreators = require('../ActionCreators'),
+  Header = require('./Header.jsx'),
+  Navigation = require('./Navigation.jsx'),
+  Content = require('./Content.jsx'),
+  Footer = require('./Footer.jsx'),
+  weatherStore = require('../stores/WeatherStore'),
+  swipeMixin = require('./mixins/SwipeMixin'),
+  appGuestures = new Hammer(document.body);
 
 var App = React.createClass({displayName: "App",
 
-  getInitialState: function() {
-    return {
-      data: 'InitialState'
-    };
-  },
+  mixins: [swipeMixin],
 
   componentDidMount: function() {
-    WeatherStore.on(AppConstants.CHANGE_EVENT, this._onChange);
+    appGuestures.on('swiperight', swipeMixin.swipeRight);
+    appGuestures.on('swipeleft', swipeMixin.swipeLeft);
+    /* WeatherStore */
+    weatherStore.on(AppConstants.CHANGE_EVENT, this._onChange);
   },
 
   componentWillUnmount: function() {
-    WeatherStore.removeListener(AppConstants.CHANGE_EVENT, this._onChange);
+    appGuestures.off('swiperight', swipeMixin.swipeRight);
+    appGuestures.off('swipeleft', swipeMixin.swipeLeft);
+    /* WeatherStore */
+    weatherStore.removeListener(AppConstants.CHANGE_EVENT, this._onChange);
   },
 
   _onChange: function() {
@@ -158,16 +194,265 @@ var App = React.createClass({displayName: "App",
   render: function() {
     return (
       React.createElement("div", null, 
-        React.createElement("img", {src: "img/weezle_fullmoon.png"}), 
-        "Your current location is: ", this.props.data.name, ", ", this.props.data.sys.country
+        React.createElement(Navigation, null), 
+        React.createElement(Header, null), 
+        React.createElement(Content, null), 
+        React.createElement(Footer, null)
+      )
+    );
+  }
+
+});
+
+module.exports = App;
+
+},{"../ActionCreators":2,"../AppConstants":3,"../stores/WeatherStore":15,"./Content.jsx":8,"./Footer.jsx":9,"./Header.jsx":10,"./Navigation.jsx":11,"./mixins/SwipeMixin":13,"hammerjs":21,"react":226}],8:[function(require,module,exports){
+'use strict';
+
+var React = require('react'),
+  WeatherInfo = require('./WeatherInfo.jsx'),
+  Content;
+
+Content = React.createClass({displayName: "Content",
+  render: function() {
+    return (
+      React.createElement("main", {id: "content", role: "main"}, 
+        React.createElement("div", {id: "centered"}, 
+          React.createElement(WeatherInfo, null)
+        )
       )
     );
   }
 });
 
-module.exports = App;
+module.exports = Content;
 
-},{"../AppConstants":2,"../stores/WeatherStore":6,"react":158}],6:[function(require,module,exports){
+},{"./WeatherInfo.jsx":12,"react":226}],9:[function(require,module,exports){
+'use strict';
+
+var React = require('react'),
+  Icon = require('material-ui').Icon,
+  IconButton = require('material-ui').IconButton,
+  Footer;
+
+Footer = React.createClass({displayName: "Footer",
+
+  render: function() {
+    return (
+      React.createElement("footer", null, 
+        React.createElement("div", {className: "iconWrapper"}, 
+          React.createElement(Icon, {
+            className: "fakeIcon", 
+            icon: "action-help"}
+            )
+        ), 
+        React.createElement("div", {className: "iconWrapper navIconWrapper"}, 
+          React.createElement(Icon, {
+            id: "nextPage", 
+            className: "navIcon", 
+            icon: "navigation-expand-more", 
+            onTouchTap: this._onNextPageClick}
+            )
+        )
+      )
+    );
+  },
+
+  _onNextPageClick: function() {
+    window.setTimeout(function() {
+      window.alert('Next Page');
+    }, 1500);
+  }
+
+});
+
+module.exports = Footer;
+
+},{"material-ui":25,"react":226}],10:[function(require,module,exports){
+'use strict';
+
+var React = require('react'),
+  Icon = require('material-ui').Icon,
+  ActionCreators = require('../ActionCreators'),
+  AppConstants = require('../AppConstants');
+
+var Header = React.createClass({displayName: "Header",
+
+  render: function() {
+    return (
+      React.createElement("header", null, 
+        React.createElement("div", {className: "iconWrapper"}, 
+          React.createElement(Icon, {
+            id: "menuIcon", 
+            icon: "navigation-menu", 
+            onTouchTap: this._onNavIconClick}
+          )
+        ), 
+        React.createElement("div", {className: "iconWrapper navIconWrapper"}, 
+          React.createElement(Icon, {
+            id: "previousPage", 
+            icon: "navigation-expand-less", 
+            onTouchTap: this._onPrevPageClick}
+          )
+        )
+      )
+    );
+  },
+
+  _onNavIconClick: function() {
+    ActionCreators.fire(AppConstants.NAVIGATION.OPEN, {});
+  },
+
+  _onPrevPageClick: function() {
+    window.alert('Previous Page');
+  }
+
+});
+
+module.exports = Header;
+
+
+},{"../ActionCreators":2,"../AppConstants":3,"material-ui":25,"react":226}],11:[function(require,module,exports){
+'use strict';
+
+var React = require('react'),
+  LeftNav = require('material-ui').LeftNav,
+  menuItems = require('../assets/menuItems'),
+  navigationStore = require('../stores/NavigationStore'),
+  AppConstants = require('../AppConstants'),
+  Navigation;
+
+Navigation = React.createClass({displayName: "Navigation",
+
+  componentDidMount: function() {
+    navigationStore.on(AppConstants.CHANGE_EVENT, this._navigationStateChanged);
+  },
+
+  componentWillUnmount: function() {
+    navigationStore.on(AppConstants.CHANGE_EVENT, this._navigationStateChanged);
+  },
+
+  render: function() {
+    return (
+      React.createElement("nav", null, 
+        React.createElement(LeftNav, {
+          ref: "leftNav", 
+          docked: false, 
+          isInitiallyOpen: false, 
+          menuItems: menuItems, 
+          onChange: this._onMenuItemClicked})
+      )
+    );
+  },
+
+  _navigationStateChanged: function() {
+    if (navigationStore.getState()) {
+      this.refs.leftNav.open();
+    }
+    else {
+      this.refs.leftNav.close();
+    }
+  },
+
+  _onMenuItemClicked: function(e, key, payload) {
+    window.alert(event.type + '\n' + key + '\n' + payload);
+  }
+
+});
+
+module.exports = Navigation;
+
+},{"../AppConstants":3,"../assets/menuItems":6,"../stores/NavigationStore":14,"material-ui":25,"react":226}],12:[function(require,module,exports){
+'use strict';
+
+var React = require('react'),
+  Menu = require('material-ui').Menu,
+  WeatherInfo,
+  iconMenuItems = [
+    { payload: '1', text: 'Live Answer', icon: 'communication_phone', number: '10' },
+    { payload: '2', text: 'Voicemail', icon: 'communication_voicemail',  number: '5' },
+    { payload: '3', text: 'Starred', icon: 'action_stars', number: '3' },
+    { payload: '4', text: 'Shared', icon: 'action_thumb_up',  number: '12' }
+  ];
+
+WeatherInfo = React.createClass({displayName: "WeatherInfo",
+  render: function() {
+    return (
+      React.createElement("section", null, 
+        React.createElement("div", {className: "pictureWrapper"}, 
+          React.createElement("img", {src: "img/cloudy19.svg"})
+        ), 
+        React.createElement(Menu, {autoWidth: false, menuItems: iconMenuItems})
+      )
+    );
+  }
+});
+
+module.exports = WeatherInfo;
+
+},{"material-ui":25,"react":226}],13:[function(require,module,exports){
+'use strict';
+
+var ActionCreators = require('../../ActionCreators'),
+  AppConstants = require('../../AppConstants');
+
+/**
+ * Horizontal swiping is not enabled due to compatibility reasons with
+ * some browsers.
+ * Read: http://hammerjs.github.io/tips/#try-to-avoid-vertical-pan/swipe
+ * @type {{swipeRight: Function, swipeLeft: Function}}
+ */
+module.exports = {
+  swipeRight: function() {
+    ActionCreators.fire(AppConstants.NAVIGATION.OPEN, {});
+  },
+  swipeLeft: function() {
+    ActionCreators.fire(AppConstants.NAVIGATION.CLOSE, {});
+  }
+};
+
+},{"../../ActionCreators":2,"../../AppConstants":3}],14:[function(require,module,exports){
+'use strict';
+
+var React = require('react'),
+  EventEmitter = require('events').EventEmitter,
+  AppDispatcher = require('../AppDispatcher'),
+  AppConstants = require('../AppConstants'),
+  CHANGE = AppConstants.CHANGE_EVENT,
+  _dispatchToken,
+  _navigationOpen = false;
+
+for(var EventEmitter____Key in EventEmitter){if(EventEmitter.hasOwnProperty(EventEmitter____Key)){NavigationStore[EventEmitter____Key]=EventEmitter[EventEmitter____Key];}}var ____SuperProtoOfEventEmitter=EventEmitter===null?null:EventEmitter.prototype;NavigationStore.prototype=Object.create(____SuperProtoOfEventEmitter);NavigationStore.prototype.constructor=NavigationStore;NavigationStore.__superConstructor__=EventEmitter;
+  function NavigationStore() {
+    EventEmitter.call(this);
+
+    _dispatchToken = AppDispatcher.register(function(action)  {
+      switch (action.type) {
+
+        case AppConstants.NAVIGATION.OPEN:
+          _navigationOpen = true;
+          this.emit(CHANGE);
+          break;
+
+        case AppConstants.NAVIGATION.CLOSE:
+          _navigationOpen = false;
+          this.emit(CHANGE);
+          break;
+
+        default:
+          console.error(new Error('noop'));
+      }
+    }.bind(this));
+  }
+
+  NavigationStore.prototype.getState=function() {
+    return _navigationOpen;
+  };
+
+
+module.exports = new NavigationStore();
+
+},{"../AppConstants":3,"../AppDispatcher":4,"events":16,"react":226}],15:[function(require,module,exports){
 'use strict';
 
 var AppDispatcher = require('../AppDispatcher'),
@@ -209,7 +494,7 @@ for(var EventEmitter____Key in EventEmitter){if(EventEmitter.hasOwnProperty(Even
 
 module.exports = new WeatherStore();
 
-},{"../AppConstants":2,"../AppDispatcher":3,"events":7,"immutable":12}],7:[function(require,module,exports){
+},{"../AppConstants":3,"../AppDispatcher":4,"events":16,"immutable":22}],16:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -512,7 +797,7 @@ function isUndefined(arg) {
   return arg === void 0;
 }
 
-},{}],8:[function(require,module,exports){
+},{}],17:[function(require,module,exports){
 // shim for using process in browser
 
 var process = module.exports = {};
@@ -600,7 +885,7 @@ process.chdir = function (dir) {
     throw new Error('process.chdir is not supported');
 };
 
-},{}],9:[function(require,module,exports){
+},{}],18:[function(require,module,exports){
 /**
  * Copyright (c) 2014, Facebook, Inc.
  * All rights reserved.
@@ -612,7 +897,7 @@ process.chdir = function (dir) {
 
 module.exports.Dispatcher = require('./lib/Dispatcher')
 
-},{"./lib/Dispatcher":10}],10:[function(require,module,exports){
+},{"./lib/Dispatcher":19}],19:[function(require,module,exports){
 /*
  * Copyright (c) 2014, Facebook, Inc.
  * All rights reserved.
@@ -864,7 +1149,7 @@ var _prefix = 'ID_';
 
 module.exports = Dispatcher;
 
-},{"./invariant":11}],11:[function(require,module,exports){
+},{"./invariant":20}],20:[function(require,module,exports){
 /**
  * Copyright (c) 2014, Facebook, Inc.
  * All rights reserved.
@@ -919,7 +1204,2472 @@ var invariant = function(condition, format, a, b, c, d, e, f) {
 
 module.exports = invariant;
 
-},{}],12:[function(require,module,exports){
+},{}],21:[function(require,module,exports){
+/*! Hammer.JS - v2.0.4 - 2014-09-28
+ * http://hammerjs.github.io/
+ *
+ * Copyright (c) 2014 Jorik Tangelder;
+ * Licensed under the MIT license */
+(function(window, document, exportName, undefined) {
+  'use strict';
+
+var VENDOR_PREFIXES = ['', 'webkit', 'moz', 'MS', 'ms', 'o'];
+var TEST_ELEMENT = document.createElement('div');
+
+var TYPE_FUNCTION = 'function';
+
+var round = Math.round;
+var abs = Math.abs;
+var now = Date.now;
+
+/**
+ * set a timeout with a given scope
+ * @param {Function} fn
+ * @param {Number} timeout
+ * @param {Object} context
+ * @returns {number}
+ */
+function setTimeoutContext(fn, timeout, context) {
+    return setTimeout(bindFn(fn, context), timeout);
+}
+
+/**
+ * if the argument is an array, we want to execute the fn on each entry
+ * if it aint an array we don't want to do a thing.
+ * this is used by all the methods that accept a single and array argument.
+ * @param {*|Array} arg
+ * @param {String} fn
+ * @param {Object} [context]
+ * @returns {Boolean}
+ */
+function invokeArrayArg(arg, fn, context) {
+    if (Array.isArray(arg)) {
+        each(arg, context[fn], context);
+        return true;
+    }
+    return false;
+}
+
+/**
+ * walk objects and arrays
+ * @param {Object} obj
+ * @param {Function} iterator
+ * @param {Object} context
+ */
+function each(obj, iterator, context) {
+    var i;
+
+    if (!obj) {
+        return;
+    }
+
+    if (obj.forEach) {
+        obj.forEach(iterator, context);
+    } else if (obj.length !== undefined) {
+        i = 0;
+        while (i < obj.length) {
+            iterator.call(context, obj[i], i, obj);
+            i++;
+        }
+    } else {
+        for (i in obj) {
+            obj.hasOwnProperty(i) && iterator.call(context, obj[i], i, obj);
+        }
+    }
+}
+
+/**
+ * extend object.
+ * means that properties in dest will be overwritten by the ones in src.
+ * @param {Object} dest
+ * @param {Object} src
+ * @param {Boolean} [merge]
+ * @returns {Object} dest
+ */
+function extend(dest, src, merge) {
+    var keys = Object.keys(src);
+    var i = 0;
+    while (i < keys.length) {
+        if (!merge || (merge && dest[keys[i]] === undefined)) {
+            dest[keys[i]] = src[keys[i]];
+        }
+        i++;
+    }
+    return dest;
+}
+
+/**
+ * merge the values from src in the dest.
+ * means that properties that exist in dest will not be overwritten by src
+ * @param {Object} dest
+ * @param {Object} src
+ * @returns {Object} dest
+ */
+function merge(dest, src) {
+    return extend(dest, src, true);
+}
+
+/**
+ * simple class inheritance
+ * @param {Function} child
+ * @param {Function} base
+ * @param {Object} [properties]
+ */
+function inherit(child, base, properties) {
+    var baseP = base.prototype,
+        childP;
+
+    childP = child.prototype = Object.create(baseP);
+    childP.constructor = child;
+    childP._super = baseP;
+
+    if (properties) {
+        extend(childP, properties);
+    }
+}
+
+/**
+ * simple function bind
+ * @param {Function} fn
+ * @param {Object} context
+ * @returns {Function}
+ */
+function bindFn(fn, context) {
+    return function boundFn() {
+        return fn.apply(context, arguments);
+    };
+}
+
+/**
+ * let a boolean value also be a function that must return a boolean
+ * this first item in args will be used as the context
+ * @param {Boolean|Function} val
+ * @param {Array} [args]
+ * @returns {Boolean}
+ */
+function boolOrFn(val, args) {
+    if (typeof val == TYPE_FUNCTION) {
+        return val.apply(args ? args[0] || undefined : undefined, args);
+    }
+    return val;
+}
+
+/**
+ * use the val2 when val1 is undefined
+ * @param {*} val1
+ * @param {*} val2
+ * @returns {*}
+ */
+function ifUndefined(val1, val2) {
+    return (val1 === undefined) ? val2 : val1;
+}
+
+/**
+ * addEventListener with multiple events at once
+ * @param {EventTarget} target
+ * @param {String} types
+ * @param {Function} handler
+ */
+function addEventListeners(target, types, handler) {
+    each(splitStr(types), function(type) {
+        target.addEventListener(type, handler, false);
+    });
+}
+
+/**
+ * removeEventListener with multiple events at once
+ * @param {EventTarget} target
+ * @param {String} types
+ * @param {Function} handler
+ */
+function removeEventListeners(target, types, handler) {
+    each(splitStr(types), function(type) {
+        target.removeEventListener(type, handler, false);
+    });
+}
+
+/**
+ * find if a node is in the given parent
+ * @method hasParent
+ * @param {HTMLElement} node
+ * @param {HTMLElement} parent
+ * @return {Boolean} found
+ */
+function hasParent(node, parent) {
+    while (node) {
+        if (node == parent) {
+            return true;
+        }
+        node = node.parentNode;
+    }
+    return false;
+}
+
+/**
+ * small indexOf wrapper
+ * @param {String} str
+ * @param {String} find
+ * @returns {Boolean} found
+ */
+function inStr(str, find) {
+    return str.indexOf(find) > -1;
+}
+
+/**
+ * split string on whitespace
+ * @param {String} str
+ * @returns {Array} words
+ */
+function splitStr(str) {
+    return str.trim().split(/\s+/g);
+}
+
+/**
+ * find if a array contains the object using indexOf or a simple polyFill
+ * @param {Array} src
+ * @param {String} find
+ * @param {String} [findByKey]
+ * @return {Boolean|Number} false when not found, or the index
+ */
+function inArray(src, find, findByKey) {
+    if (src.indexOf && !findByKey) {
+        return src.indexOf(find);
+    } else {
+        var i = 0;
+        while (i < src.length) {
+            if ((findByKey && src[i][findByKey] == find) || (!findByKey && src[i] === find)) {
+                return i;
+            }
+            i++;
+        }
+        return -1;
+    }
+}
+
+/**
+ * convert array-like objects to real arrays
+ * @param {Object} obj
+ * @returns {Array}
+ */
+function toArray(obj) {
+    return Array.prototype.slice.call(obj, 0);
+}
+
+/**
+ * unique array with objects based on a key (like 'id') or just by the array's value
+ * @param {Array} src [{id:1},{id:2},{id:1}]
+ * @param {String} [key]
+ * @param {Boolean} [sort=False]
+ * @returns {Array} [{id:1},{id:2}]
+ */
+function uniqueArray(src, key, sort) {
+    var results = [];
+    var values = [];
+    var i = 0;
+
+    while (i < src.length) {
+        var val = key ? src[i][key] : src[i];
+        if (inArray(values, val) < 0) {
+            results.push(src[i]);
+        }
+        values[i] = val;
+        i++;
+    }
+
+    if (sort) {
+        if (!key) {
+            results = results.sort();
+        } else {
+            results = results.sort(function sortUniqueArray(a, b) {
+                return a[key] > b[key];
+            });
+        }
+    }
+
+    return results;
+}
+
+/**
+ * get the prefixed property
+ * @param {Object} obj
+ * @param {String} property
+ * @returns {String|Undefined} prefixed
+ */
+function prefixed(obj, property) {
+    var prefix, prop;
+    var camelProp = property[0].toUpperCase() + property.slice(1);
+
+    var i = 0;
+    while (i < VENDOR_PREFIXES.length) {
+        prefix = VENDOR_PREFIXES[i];
+        prop = (prefix) ? prefix + camelProp : property;
+
+        if (prop in obj) {
+            return prop;
+        }
+        i++;
+    }
+    return undefined;
+}
+
+/**
+ * get a unique id
+ * @returns {number} uniqueId
+ */
+var _uniqueId = 1;
+function uniqueId() {
+    return _uniqueId++;
+}
+
+/**
+ * get the window object of an element
+ * @param {HTMLElement} element
+ * @returns {DocumentView|Window}
+ */
+function getWindowForElement(element) {
+    var doc = element.ownerDocument;
+    return (doc.defaultView || doc.parentWindow);
+}
+
+var MOBILE_REGEX = /mobile|tablet|ip(ad|hone|od)|android/i;
+
+var SUPPORT_TOUCH = ('ontouchstart' in window);
+var SUPPORT_POINTER_EVENTS = prefixed(window, 'PointerEvent') !== undefined;
+var SUPPORT_ONLY_TOUCH = SUPPORT_TOUCH && MOBILE_REGEX.test(navigator.userAgent);
+
+var INPUT_TYPE_TOUCH = 'touch';
+var INPUT_TYPE_PEN = 'pen';
+var INPUT_TYPE_MOUSE = 'mouse';
+var INPUT_TYPE_KINECT = 'kinect';
+
+var COMPUTE_INTERVAL = 25;
+
+var INPUT_START = 1;
+var INPUT_MOVE = 2;
+var INPUT_END = 4;
+var INPUT_CANCEL = 8;
+
+var DIRECTION_NONE = 1;
+var DIRECTION_LEFT = 2;
+var DIRECTION_RIGHT = 4;
+var DIRECTION_UP = 8;
+var DIRECTION_DOWN = 16;
+
+var DIRECTION_HORIZONTAL = DIRECTION_LEFT | DIRECTION_RIGHT;
+var DIRECTION_VERTICAL = DIRECTION_UP | DIRECTION_DOWN;
+var DIRECTION_ALL = DIRECTION_HORIZONTAL | DIRECTION_VERTICAL;
+
+var PROPS_XY = ['x', 'y'];
+var PROPS_CLIENT_XY = ['clientX', 'clientY'];
+
+/**
+ * create new input type manager
+ * @param {Manager} manager
+ * @param {Function} callback
+ * @returns {Input}
+ * @constructor
+ */
+function Input(manager, callback) {
+    var self = this;
+    this.manager = manager;
+    this.callback = callback;
+    this.element = manager.element;
+    this.target = manager.options.inputTarget;
+
+    // smaller wrapper around the handler, for the scope and the enabled state of the manager,
+    // so when disabled the input events are completely bypassed.
+    this.domHandler = function(ev) {
+        if (boolOrFn(manager.options.enable, [manager])) {
+            self.handler(ev);
+        }
+    };
+
+    this.init();
+
+}
+
+Input.prototype = {
+    /**
+     * should handle the inputEvent data and trigger the callback
+     * @virtual
+     */
+    handler: function() { },
+
+    /**
+     * bind the events
+     */
+    init: function() {
+        this.evEl && addEventListeners(this.element, this.evEl, this.domHandler);
+        this.evTarget && addEventListeners(this.target, this.evTarget, this.domHandler);
+        this.evWin && addEventListeners(getWindowForElement(this.element), this.evWin, this.domHandler);
+    },
+
+    /**
+     * unbind the events
+     */
+    destroy: function() {
+        this.evEl && removeEventListeners(this.element, this.evEl, this.domHandler);
+        this.evTarget && removeEventListeners(this.target, this.evTarget, this.domHandler);
+        this.evWin && removeEventListeners(getWindowForElement(this.element), this.evWin, this.domHandler);
+    }
+};
+
+/**
+ * create new input type manager
+ * called by the Manager constructor
+ * @param {Hammer} manager
+ * @returns {Input}
+ */
+function createInputInstance(manager) {
+    var Type;
+    var inputClass = manager.options.inputClass;
+
+    if (inputClass) {
+        Type = inputClass;
+    } else if (SUPPORT_POINTER_EVENTS) {
+        Type = PointerEventInput;
+    } else if (SUPPORT_ONLY_TOUCH) {
+        Type = TouchInput;
+    } else if (!SUPPORT_TOUCH) {
+        Type = MouseInput;
+    } else {
+        Type = TouchMouseInput;
+    }
+    return new (Type)(manager, inputHandler);
+}
+
+/**
+ * handle input events
+ * @param {Manager} manager
+ * @param {String} eventType
+ * @param {Object} input
+ */
+function inputHandler(manager, eventType, input) {
+    var pointersLen = input.pointers.length;
+    var changedPointersLen = input.changedPointers.length;
+    var isFirst = (eventType & INPUT_START && (pointersLen - changedPointersLen === 0));
+    var isFinal = (eventType & (INPUT_END | INPUT_CANCEL) && (pointersLen - changedPointersLen === 0));
+
+    input.isFirst = !!isFirst;
+    input.isFinal = !!isFinal;
+
+    if (isFirst) {
+        manager.session = {};
+    }
+
+    // source event is the normalized value of the domEvents
+    // like 'touchstart, mouseup, pointerdown'
+    input.eventType = eventType;
+
+    // compute scale, rotation etc
+    computeInputData(manager, input);
+
+    // emit secret event
+    manager.emit('hammer.input', input);
+
+    manager.recognize(input);
+    manager.session.prevInput = input;
+}
+
+/**
+ * extend the data with some usable properties like scale, rotate, velocity etc
+ * @param {Object} manager
+ * @param {Object} input
+ */
+function computeInputData(manager, input) {
+    var session = manager.session;
+    var pointers = input.pointers;
+    var pointersLength = pointers.length;
+
+    // store the first input to calculate the distance and direction
+    if (!session.firstInput) {
+        session.firstInput = simpleCloneInputData(input);
+    }
+
+    // to compute scale and rotation we need to store the multiple touches
+    if (pointersLength > 1 && !session.firstMultiple) {
+        session.firstMultiple = simpleCloneInputData(input);
+    } else if (pointersLength === 1) {
+        session.firstMultiple = false;
+    }
+
+    var firstInput = session.firstInput;
+    var firstMultiple = session.firstMultiple;
+    var offsetCenter = firstMultiple ? firstMultiple.center : firstInput.center;
+
+    var center = input.center = getCenter(pointers);
+    input.timeStamp = now();
+    input.deltaTime = input.timeStamp - firstInput.timeStamp;
+
+    input.angle = getAngle(offsetCenter, center);
+    input.distance = getDistance(offsetCenter, center);
+
+    computeDeltaXY(session, input);
+    input.offsetDirection = getDirection(input.deltaX, input.deltaY);
+
+    input.scale = firstMultiple ? getScale(firstMultiple.pointers, pointers) : 1;
+    input.rotation = firstMultiple ? getRotation(firstMultiple.pointers, pointers) : 0;
+
+    computeIntervalInputData(session, input);
+
+    // find the correct target
+    var target = manager.element;
+    if (hasParent(input.srcEvent.target, target)) {
+        target = input.srcEvent.target;
+    }
+    input.target = target;
+}
+
+function computeDeltaXY(session, input) {
+    var center = input.center;
+    var offset = session.offsetDelta || {};
+    var prevDelta = session.prevDelta || {};
+    var prevInput = session.prevInput || {};
+
+    if (input.eventType === INPUT_START || prevInput.eventType === INPUT_END) {
+        prevDelta = session.prevDelta = {
+            x: prevInput.deltaX || 0,
+            y: prevInput.deltaY || 0
+        };
+
+        offset = session.offsetDelta = {
+            x: center.x,
+            y: center.y
+        };
+    }
+
+    input.deltaX = prevDelta.x + (center.x - offset.x);
+    input.deltaY = prevDelta.y + (center.y - offset.y);
+}
+
+/**
+ * velocity is calculated every x ms
+ * @param {Object} session
+ * @param {Object} input
+ */
+function computeIntervalInputData(session, input) {
+    var last = session.lastInterval || input,
+        deltaTime = input.timeStamp - last.timeStamp,
+        velocity, velocityX, velocityY, direction;
+
+    if (input.eventType != INPUT_CANCEL && (deltaTime > COMPUTE_INTERVAL || last.velocity === undefined)) {
+        var deltaX = last.deltaX - input.deltaX;
+        var deltaY = last.deltaY - input.deltaY;
+
+        var v = getVelocity(deltaTime, deltaX, deltaY);
+        velocityX = v.x;
+        velocityY = v.y;
+        velocity = (abs(v.x) > abs(v.y)) ? v.x : v.y;
+        direction = getDirection(deltaX, deltaY);
+
+        session.lastInterval = input;
+    } else {
+        // use latest velocity info if it doesn't overtake a minimum period
+        velocity = last.velocity;
+        velocityX = last.velocityX;
+        velocityY = last.velocityY;
+        direction = last.direction;
+    }
+
+    input.velocity = velocity;
+    input.velocityX = velocityX;
+    input.velocityY = velocityY;
+    input.direction = direction;
+}
+
+/**
+ * create a simple clone from the input used for storage of firstInput and firstMultiple
+ * @param {Object} input
+ * @returns {Object} clonedInputData
+ */
+function simpleCloneInputData(input) {
+    // make a simple copy of the pointers because we will get a reference if we don't
+    // we only need clientXY for the calculations
+    var pointers = [];
+    var i = 0;
+    while (i < input.pointers.length) {
+        pointers[i] = {
+            clientX: round(input.pointers[i].clientX),
+            clientY: round(input.pointers[i].clientY)
+        };
+        i++;
+    }
+
+    return {
+        timeStamp: now(),
+        pointers: pointers,
+        center: getCenter(pointers),
+        deltaX: input.deltaX,
+        deltaY: input.deltaY
+    };
+}
+
+/**
+ * get the center of all the pointers
+ * @param {Array} pointers
+ * @return {Object} center contains `x` and `y` properties
+ */
+function getCenter(pointers) {
+    var pointersLength = pointers.length;
+
+    // no need to loop when only one touch
+    if (pointersLength === 1) {
+        return {
+            x: round(pointers[0].clientX),
+            y: round(pointers[0].clientY)
+        };
+    }
+
+    var x = 0, y = 0, i = 0;
+    while (i < pointersLength) {
+        x += pointers[i].clientX;
+        y += pointers[i].clientY;
+        i++;
+    }
+
+    return {
+        x: round(x / pointersLength),
+        y: round(y / pointersLength)
+    };
+}
+
+/**
+ * calculate the velocity between two points. unit is in px per ms.
+ * @param {Number} deltaTime
+ * @param {Number} x
+ * @param {Number} y
+ * @return {Object} velocity `x` and `y`
+ */
+function getVelocity(deltaTime, x, y) {
+    return {
+        x: x / deltaTime || 0,
+        y: y / deltaTime || 0
+    };
+}
+
+/**
+ * get the direction between two points
+ * @param {Number} x
+ * @param {Number} y
+ * @return {Number} direction
+ */
+function getDirection(x, y) {
+    if (x === y) {
+        return DIRECTION_NONE;
+    }
+
+    if (abs(x) >= abs(y)) {
+        return x > 0 ? DIRECTION_LEFT : DIRECTION_RIGHT;
+    }
+    return y > 0 ? DIRECTION_UP : DIRECTION_DOWN;
+}
+
+/**
+ * calculate the absolute distance between two points
+ * @param {Object} p1 {x, y}
+ * @param {Object} p2 {x, y}
+ * @param {Array} [props] containing x and y keys
+ * @return {Number} distance
+ */
+function getDistance(p1, p2, props) {
+    if (!props) {
+        props = PROPS_XY;
+    }
+    var x = p2[props[0]] - p1[props[0]],
+        y = p2[props[1]] - p1[props[1]];
+
+    return Math.sqrt((x * x) + (y * y));
+}
+
+/**
+ * calculate the angle between two coordinates
+ * @param {Object} p1
+ * @param {Object} p2
+ * @param {Array} [props] containing x and y keys
+ * @return {Number} angle
+ */
+function getAngle(p1, p2, props) {
+    if (!props) {
+        props = PROPS_XY;
+    }
+    var x = p2[props[0]] - p1[props[0]],
+        y = p2[props[1]] - p1[props[1]];
+    return Math.atan2(y, x) * 180 / Math.PI;
+}
+
+/**
+ * calculate the rotation degrees between two pointersets
+ * @param {Array} start array of pointers
+ * @param {Array} end array of pointers
+ * @return {Number} rotation
+ */
+function getRotation(start, end) {
+    return getAngle(end[1], end[0], PROPS_CLIENT_XY) - getAngle(start[1], start[0], PROPS_CLIENT_XY);
+}
+
+/**
+ * calculate the scale factor between two pointersets
+ * no scale is 1, and goes down to 0 when pinched together, and bigger when pinched out
+ * @param {Array} start array of pointers
+ * @param {Array} end array of pointers
+ * @return {Number} scale
+ */
+function getScale(start, end) {
+    return getDistance(end[0], end[1], PROPS_CLIENT_XY) / getDistance(start[0], start[1], PROPS_CLIENT_XY);
+}
+
+var MOUSE_INPUT_MAP = {
+    mousedown: INPUT_START,
+    mousemove: INPUT_MOVE,
+    mouseup: INPUT_END
+};
+
+var MOUSE_ELEMENT_EVENTS = 'mousedown';
+var MOUSE_WINDOW_EVENTS = 'mousemove mouseup';
+
+/**
+ * Mouse events input
+ * @constructor
+ * @extends Input
+ */
+function MouseInput() {
+    this.evEl = MOUSE_ELEMENT_EVENTS;
+    this.evWin = MOUSE_WINDOW_EVENTS;
+
+    this.allow = true; // used by Input.TouchMouse to disable mouse events
+    this.pressed = false; // mousedown state
+
+    Input.apply(this, arguments);
+}
+
+inherit(MouseInput, Input, {
+    /**
+     * handle mouse events
+     * @param {Object} ev
+     */
+    handler: function MEhandler(ev) {
+        var eventType = MOUSE_INPUT_MAP[ev.type];
+
+        // on start we want to have the left mouse button down
+        if (eventType & INPUT_START && ev.button === 0) {
+            this.pressed = true;
+        }
+
+        if (eventType & INPUT_MOVE && ev.which !== 1) {
+            eventType = INPUT_END;
+        }
+
+        // mouse must be down, and mouse events are allowed (see the TouchMouse input)
+        if (!this.pressed || !this.allow) {
+            return;
+        }
+
+        if (eventType & INPUT_END) {
+            this.pressed = false;
+        }
+
+        this.callback(this.manager, eventType, {
+            pointers: [ev],
+            changedPointers: [ev],
+            pointerType: INPUT_TYPE_MOUSE,
+            srcEvent: ev
+        });
+    }
+});
+
+var POINTER_INPUT_MAP = {
+    pointerdown: INPUT_START,
+    pointermove: INPUT_MOVE,
+    pointerup: INPUT_END,
+    pointercancel: INPUT_CANCEL,
+    pointerout: INPUT_CANCEL
+};
+
+// in IE10 the pointer types is defined as an enum
+var IE10_POINTER_TYPE_ENUM = {
+    2: INPUT_TYPE_TOUCH,
+    3: INPUT_TYPE_PEN,
+    4: INPUT_TYPE_MOUSE,
+    5: INPUT_TYPE_KINECT // see https://twitter.com/jacobrossi/status/480596438489890816
+};
+
+var POINTER_ELEMENT_EVENTS = 'pointerdown';
+var POINTER_WINDOW_EVENTS = 'pointermove pointerup pointercancel';
+
+// IE10 has prefixed support, and case-sensitive
+if (window.MSPointerEvent) {
+    POINTER_ELEMENT_EVENTS = 'MSPointerDown';
+    POINTER_WINDOW_EVENTS = 'MSPointerMove MSPointerUp MSPointerCancel';
+}
+
+/**
+ * Pointer events input
+ * @constructor
+ * @extends Input
+ */
+function PointerEventInput() {
+    this.evEl = POINTER_ELEMENT_EVENTS;
+    this.evWin = POINTER_WINDOW_EVENTS;
+
+    Input.apply(this, arguments);
+
+    this.store = (this.manager.session.pointerEvents = []);
+}
+
+inherit(PointerEventInput, Input, {
+    /**
+     * handle mouse events
+     * @param {Object} ev
+     */
+    handler: function PEhandler(ev) {
+        var store = this.store;
+        var removePointer = false;
+
+        var eventTypeNormalized = ev.type.toLowerCase().replace('ms', '');
+        var eventType = POINTER_INPUT_MAP[eventTypeNormalized];
+        var pointerType = IE10_POINTER_TYPE_ENUM[ev.pointerType] || ev.pointerType;
+
+        var isTouch = (pointerType == INPUT_TYPE_TOUCH);
+
+        // get index of the event in the store
+        var storeIndex = inArray(store, ev.pointerId, 'pointerId');
+
+        // start and mouse must be down
+        if (eventType & INPUT_START && (ev.button === 0 || isTouch)) {
+            if (storeIndex < 0) {
+                store.push(ev);
+                storeIndex = store.length - 1;
+            }
+        } else if (eventType & (INPUT_END | INPUT_CANCEL)) {
+            removePointer = true;
+        }
+
+        // it not found, so the pointer hasn't been down (so it's probably a hover)
+        if (storeIndex < 0) {
+            return;
+        }
+
+        // update the event in the store
+        store[storeIndex] = ev;
+
+        this.callback(this.manager, eventType, {
+            pointers: store,
+            changedPointers: [ev],
+            pointerType: pointerType,
+            srcEvent: ev
+        });
+
+        if (removePointer) {
+            // remove from the store
+            store.splice(storeIndex, 1);
+        }
+    }
+});
+
+var SINGLE_TOUCH_INPUT_MAP = {
+    touchstart: INPUT_START,
+    touchmove: INPUT_MOVE,
+    touchend: INPUT_END,
+    touchcancel: INPUT_CANCEL
+};
+
+var SINGLE_TOUCH_TARGET_EVENTS = 'touchstart';
+var SINGLE_TOUCH_WINDOW_EVENTS = 'touchstart touchmove touchend touchcancel';
+
+/**
+ * Touch events input
+ * @constructor
+ * @extends Input
+ */
+function SingleTouchInput() {
+    this.evTarget = SINGLE_TOUCH_TARGET_EVENTS;
+    this.evWin = SINGLE_TOUCH_WINDOW_EVENTS;
+    this.started = false;
+
+    Input.apply(this, arguments);
+}
+
+inherit(SingleTouchInput, Input, {
+    handler: function TEhandler(ev) {
+        var type = SINGLE_TOUCH_INPUT_MAP[ev.type];
+
+        // should we handle the touch events?
+        if (type === INPUT_START) {
+            this.started = true;
+        }
+
+        if (!this.started) {
+            return;
+        }
+
+        var touches = normalizeSingleTouches.call(this, ev, type);
+
+        // when done, reset the started state
+        if (type & (INPUT_END | INPUT_CANCEL) && touches[0].length - touches[1].length === 0) {
+            this.started = false;
+        }
+
+        this.callback(this.manager, type, {
+            pointers: touches[0],
+            changedPointers: touches[1],
+            pointerType: INPUT_TYPE_TOUCH,
+            srcEvent: ev
+        });
+    }
+});
+
+/**
+ * @this {TouchInput}
+ * @param {Object} ev
+ * @param {Number} type flag
+ * @returns {undefined|Array} [all, changed]
+ */
+function normalizeSingleTouches(ev, type) {
+    var all = toArray(ev.touches);
+    var changed = toArray(ev.changedTouches);
+
+    if (type & (INPUT_END | INPUT_CANCEL)) {
+        all = uniqueArray(all.concat(changed), 'identifier', true);
+    }
+
+    return [all, changed];
+}
+
+var TOUCH_INPUT_MAP = {
+    touchstart: INPUT_START,
+    touchmove: INPUT_MOVE,
+    touchend: INPUT_END,
+    touchcancel: INPUT_CANCEL
+};
+
+var TOUCH_TARGET_EVENTS = 'touchstart touchmove touchend touchcancel';
+
+/**
+ * Multi-user touch events input
+ * @constructor
+ * @extends Input
+ */
+function TouchInput() {
+    this.evTarget = TOUCH_TARGET_EVENTS;
+    this.targetIds = {};
+
+    Input.apply(this, arguments);
+}
+
+inherit(TouchInput, Input, {
+    handler: function MTEhandler(ev) {
+        var type = TOUCH_INPUT_MAP[ev.type];
+        var touches = getTouches.call(this, ev, type);
+        if (!touches) {
+            return;
+        }
+
+        this.callback(this.manager, type, {
+            pointers: touches[0],
+            changedPointers: touches[1],
+            pointerType: INPUT_TYPE_TOUCH,
+            srcEvent: ev
+        });
+    }
+});
+
+/**
+ * @this {TouchInput}
+ * @param {Object} ev
+ * @param {Number} type flag
+ * @returns {undefined|Array} [all, changed]
+ */
+function getTouches(ev, type) {
+    var allTouches = toArray(ev.touches);
+    var targetIds = this.targetIds;
+
+    // when there is only one touch, the process can be simplified
+    if (type & (INPUT_START | INPUT_MOVE) && allTouches.length === 1) {
+        targetIds[allTouches[0].identifier] = true;
+        return [allTouches, allTouches];
+    }
+
+    var i,
+        targetTouches,
+        changedTouches = toArray(ev.changedTouches),
+        changedTargetTouches = [],
+        target = this.target;
+
+    // get target touches from touches
+    targetTouches = allTouches.filter(function(touch) {
+        return hasParent(touch.target, target);
+    });
+
+    // collect touches
+    if (type === INPUT_START) {
+        i = 0;
+        while (i < targetTouches.length) {
+            targetIds[targetTouches[i].identifier] = true;
+            i++;
+        }
+    }
+
+    // filter changed touches to only contain touches that exist in the collected target ids
+    i = 0;
+    while (i < changedTouches.length) {
+        if (targetIds[changedTouches[i].identifier]) {
+            changedTargetTouches.push(changedTouches[i]);
+        }
+
+        // cleanup removed touches
+        if (type & (INPUT_END | INPUT_CANCEL)) {
+            delete targetIds[changedTouches[i].identifier];
+        }
+        i++;
+    }
+
+    if (!changedTargetTouches.length) {
+        return;
+    }
+
+    return [
+        // merge targetTouches with changedTargetTouches so it contains ALL touches, including 'end' and 'cancel'
+        uniqueArray(targetTouches.concat(changedTargetTouches), 'identifier', true),
+        changedTargetTouches
+    ];
+}
+
+/**
+ * Combined touch and mouse input
+ *
+ * Touch has a higher priority then mouse, and while touching no mouse events are allowed.
+ * This because touch devices also emit mouse events while doing a touch.
+ *
+ * @constructor
+ * @extends Input
+ */
+function TouchMouseInput() {
+    Input.apply(this, arguments);
+
+    var handler = bindFn(this.handler, this);
+    this.touch = new TouchInput(this.manager, handler);
+    this.mouse = new MouseInput(this.manager, handler);
+}
+
+inherit(TouchMouseInput, Input, {
+    /**
+     * handle mouse and touch events
+     * @param {Hammer} manager
+     * @param {String} inputEvent
+     * @param {Object} inputData
+     */
+    handler: function TMEhandler(manager, inputEvent, inputData) {
+        var isTouch = (inputData.pointerType == INPUT_TYPE_TOUCH),
+            isMouse = (inputData.pointerType == INPUT_TYPE_MOUSE);
+
+        // when we're in a touch event, so  block all upcoming mouse events
+        // most mobile browser also emit mouseevents, right after touchstart
+        if (isTouch) {
+            this.mouse.allow = false;
+        } else if (isMouse && !this.mouse.allow) {
+            return;
+        }
+
+        // reset the allowMouse when we're done
+        if (inputEvent & (INPUT_END | INPUT_CANCEL)) {
+            this.mouse.allow = true;
+        }
+
+        this.callback(manager, inputEvent, inputData);
+    },
+
+    /**
+     * remove the event listeners
+     */
+    destroy: function destroy() {
+        this.touch.destroy();
+        this.mouse.destroy();
+    }
+});
+
+var PREFIXED_TOUCH_ACTION = prefixed(TEST_ELEMENT.style, 'touchAction');
+var NATIVE_TOUCH_ACTION = PREFIXED_TOUCH_ACTION !== undefined;
+
+// magical touchAction value
+var TOUCH_ACTION_COMPUTE = 'compute';
+var TOUCH_ACTION_AUTO = 'auto';
+var TOUCH_ACTION_MANIPULATION = 'manipulation'; // not implemented
+var TOUCH_ACTION_NONE = 'none';
+var TOUCH_ACTION_PAN_X = 'pan-x';
+var TOUCH_ACTION_PAN_Y = 'pan-y';
+
+/**
+ * Touch Action
+ * sets the touchAction property or uses the js alternative
+ * @param {Manager} manager
+ * @param {String} value
+ * @constructor
+ */
+function TouchAction(manager, value) {
+    this.manager = manager;
+    this.set(value);
+}
+
+TouchAction.prototype = {
+    /**
+     * set the touchAction value on the element or enable the polyfill
+     * @param {String} value
+     */
+    set: function(value) {
+        // find out the touch-action by the event handlers
+        if (value == TOUCH_ACTION_COMPUTE) {
+            value = this.compute();
+        }
+
+        if (NATIVE_TOUCH_ACTION) {
+            this.manager.element.style[PREFIXED_TOUCH_ACTION] = value;
+        }
+        this.actions = value.toLowerCase().trim();
+    },
+
+    /**
+     * just re-set the touchAction value
+     */
+    update: function() {
+        this.set(this.manager.options.touchAction);
+    },
+
+    /**
+     * compute the value for the touchAction property based on the recognizer's settings
+     * @returns {String} value
+     */
+    compute: function() {
+        var actions = [];
+        each(this.manager.recognizers, function(recognizer) {
+            if (boolOrFn(recognizer.options.enable, [recognizer])) {
+                actions = actions.concat(recognizer.getTouchAction());
+            }
+        });
+        return cleanTouchActions(actions.join(' '));
+    },
+
+    /**
+     * this method is called on each input cycle and provides the preventing of the browser behavior
+     * @param {Object} input
+     */
+    preventDefaults: function(input) {
+        // not needed with native support for the touchAction property
+        if (NATIVE_TOUCH_ACTION) {
+            return;
+        }
+
+        var srcEvent = input.srcEvent;
+        var direction = input.offsetDirection;
+
+        // if the touch action did prevented once this session
+        if (this.manager.session.prevented) {
+            srcEvent.preventDefault();
+            return;
+        }
+
+        var actions = this.actions;
+        var hasNone = inStr(actions, TOUCH_ACTION_NONE);
+        var hasPanY = inStr(actions, TOUCH_ACTION_PAN_Y);
+        var hasPanX = inStr(actions, TOUCH_ACTION_PAN_X);
+
+        if (hasNone ||
+            (hasPanY && direction & DIRECTION_HORIZONTAL) ||
+            (hasPanX && direction & DIRECTION_VERTICAL)) {
+            return this.preventSrc(srcEvent);
+        }
+    },
+
+    /**
+     * call preventDefault to prevent the browser's default behavior (scrolling in most cases)
+     * @param {Object} srcEvent
+     */
+    preventSrc: function(srcEvent) {
+        this.manager.session.prevented = true;
+        srcEvent.preventDefault();
+    }
+};
+
+/**
+ * when the touchActions are collected they are not a valid value, so we need to clean things up. *
+ * @param {String} actions
+ * @returns {*}
+ */
+function cleanTouchActions(actions) {
+    // none
+    if (inStr(actions, TOUCH_ACTION_NONE)) {
+        return TOUCH_ACTION_NONE;
+    }
+
+    var hasPanX = inStr(actions, TOUCH_ACTION_PAN_X);
+    var hasPanY = inStr(actions, TOUCH_ACTION_PAN_Y);
+
+    // pan-x and pan-y can be combined
+    if (hasPanX && hasPanY) {
+        return TOUCH_ACTION_PAN_X + ' ' + TOUCH_ACTION_PAN_Y;
+    }
+
+    // pan-x OR pan-y
+    if (hasPanX || hasPanY) {
+        return hasPanX ? TOUCH_ACTION_PAN_X : TOUCH_ACTION_PAN_Y;
+    }
+
+    // manipulation
+    if (inStr(actions, TOUCH_ACTION_MANIPULATION)) {
+        return TOUCH_ACTION_MANIPULATION;
+    }
+
+    return TOUCH_ACTION_AUTO;
+}
+
+/**
+ * Recognizer flow explained; *
+ * All recognizers have the initial state of POSSIBLE when a input session starts.
+ * The definition of a input session is from the first input until the last input, with all it's movement in it. *
+ * Example session for mouse-input: mousedown -> mousemove -> mouseup
+ *
+ * On each recognizing cycle (see Manager.recognize) the .recognize() method is executed
+ * which determines with state it should be.
+ *
+ * If the recognizer has the state FAILED, CANCELLED or RECOGNIZED (equals ENDED), it is reset to
+ * POSSIBLE to give it another change on the next cycle.
+ *
+ *               Possible
+ *                  |
+ *            +-----+---------------+
+ *            |                     |
+ *      +-----+-----+               |
+ *      |           |               |
+ *   Failed      Cancelled          |
+ *                          +-------+------+
+ *                          |              |
+ *                      Recognized       Began
+ *                                         |
+ *                                      Changed
+ *                                         |
+ *                                  Ended/Recognized
+ */
+var STATE_POSSIBLE = 1;
+var STATE_BEGAN = 2;
+var STATE_CHANGED = 4;
+var STATE_ENDED = 8;
+var STATE_RECOGNIZED = STATE_ENDED;
+var STATE_CANCELLED = 16;
+var STATE_FAILED = 32;
+
+/**
+ * Recognizer
+ * Every recognizer needs to extend from this class.
+ * @constructor
+ * @param {Object} options
+ */
+function Recognizer(options) {
+    this.id = uniqueId();
+
+    this.manager = null;
+    this.options = merge(options || {}, this.defaults);
+
+    // default is enable true
+    this.options.enable = ifUndefined(this.options.enable, true);
+
+    this.state = STATE_POSSIBLE;
+
+    this.simultaneous = {};
+    this.requireFail = [];
+}
+
+Recognizer.prototype = {
+    /**
+     * @virtual
+     * @type {Object}
+     */
+    defaults: {},
+
+    /**
+     * set options
+     * @param {Object} options
+     * @return {Recognizer}
+     */
+    set: function(options) {
+        extend(this.options, options);
+
+        // also update the touchAction, in case something changed about the directions/enabled state
+        this.manager && this.manager.touchAction.update();
+        return this;
+    },
+
+    /**
+     * recognize simultaneous with an other recognizer.
+     * @param {Recognizer} otherRecognizer
+     * @returns {Recognizer} this
+     */
+    recognizeWith: function(otherRecognizer) {
+        if (invokeArrayArg(otherRecognizer, 'recognizeWith', this)) {
+            return this;
+        }
+
+        var simultaneous = this.simultaneous;
+        otherRecognizer = getRecognizerByNameIfManager(otherRecognizer, this);
+        if (!simultaneous[otherRecognizer.id]) {
+            simultaneous[otherRecognizer.id] = otherRecognizer;
+            otherRecognizer.recognizeWith(this);
+        }
+        return this;
+    },
+
+    /**
+     * drop the simultaneous link. it doesnt remove the link on the other recognizer.
+     * @param {Recognizer} otherRecognizer
+     * @returns {Recognizer} this
+     */
+    dropRecognizeWith: function(otherRecognizer) {
+        if (invokeArrayArg(otherRecognizer, 'dropRecognizeWith', this)) {
+            return this;
+        }
+
+        otherRecognizer = getRecognizerByNameIfManager(otherRecognizer, this);
+        delete this.simultaneous[otherRecognizer.id];
+        return this;
+    },
+
+    /**
+     * recognizer can only run when an other is failing
+     * @param {Recognizer} otherRecognizer
+     * @returns {Recognizer} this
+     */
+    requireFailure: function(otherRecognizer) {
+        if (invokeArrayArg(otherRecognizer, 'requireFailure', this)) {
+            return this;
+        }
+
+        var requireFail = this.requireFail;
+        otherRecognizer = getRecognizerByNameIfManager(otherRecognizer, this);
+        if (inArray(requireFail, otherRecognizer) === -1) {
+            requireFail.push(otherRecognizer);
+            otherRecognizer.requireFailure(this);
+        }
+        return this;
+    },
+
+    /**
+     * drop the requireFailure link. it does not remove the link on the other recognizer.
+     * @param {Recognizer} otherRecognizer
+     * @returns {Recognizer} this
+     */
+    dropRequireFailure: function(otherRecognizer) {
+        if (invokeArrayArg(otherRecognizer, 'dropRequireFailure', this)) {
+            return this;
+        }
+
+        otherRecognizer = getRecognizerByNameIfManager(otherRecognizer, this);
+        var index = inArray(this.requireFail, otherRecognizer);
+        if (index > -1) {
+            this.requireFail.splice(index, 1);
+        }
+        return this;
+    },
+
+    /**
+     * has require failures boolean
+     * @returns {boolean}
+     */
+    hasRequireFailures: function() {
+        return this.requireFail.length > 0;
+    },
+
+    /**
+     * if the recognizer can recognize simultaneous with an other recognizer
+     * @param {Recognizer} otherRecognizer
+     * @returns {Boolean}
+     */
+    canRecognizeWith: function(otherRecognizer) {
+        return !!this.simultaneous[otherRecognizer.id];
+    },
+
+    /**
+     * You should use `tryEmit` instead of `emit` directly to check
+     * that all the needed recognizers has failed before emitting.
+     * @param {Object} input
+     */
+    emit: function(input) {
+        var self = this;
+        var state = this.state;
+
+        function emit(withState) {
+            self.manager.emit(self.options.event + (withState ? stateStr(state) : ''), input);
+        }
+
+        // 'panstart' and 'panmove'
+        if (state < STATE_ENDED) {
+            emit(true);
+        }
+
+        emit(); // simple 'eventName' events
+
+        // panend and pancancel
+        if (state >= STATE_ENDED) {
+            emit(true);
+        }
+    },
+
+    /**
+     * Check that all the require failure recognizers has failed,
+     * if true, it emits a gesture event,
+     * otherwise, setup the state to FAILED.
+     * @param {Object} input
+     */
+    tryEmit: function(input) {
+        if (this.canEmit()) {
+            return this.emit(input);
+        }
+        // it's failing anyway
+        this.state = STATE_FAILED;
+    },
+
+    /**
+     * can we emit?
+     * @returns {boolean}
+     */
+    canEmit: function() {
+        var i = 0;
+        while (i < this.requireFail.length) {
+            if (!(this.requireFail[i].state & (STATE_FAILED | STATE_POSSIBLE))) {
+                return false;
+            }
+            i++;
+        }
+        return true;
+    },
+
+    /**
+     * update the recognizer
+     * @param {Object} inputData
+     */
+    recognize: function(inputData) {
+        // make a new copy of the inputData
+        // so we can change the inputData without messing up the other recognizers
+        var inputDataClone = extend({}, inputData);
+
+        // is is enabled and allow recognizing?
+        if (!boolOrFn(this.options.enable, [this, inputDataClone])) {
+            this.reset();
+            this.state = STATE_FAILED;
+            return;
+        }
+
+        // reset when we've reached the end
+        if (this.state & (STATE_RECOGNIZED | STATE_CANCELLED | STATE_FAILED)) {
+            this.state = STATE_POSSIBLE;
+        }
+
+        this.state = this.process(inputDataClone);
+
+        // the recognizer has recognized a gesture
+        // so trigger an event
+        if (this.state & (STATE_BEGAN | STATE_CHANGED | STATE_ENDED | STATE_CANCELLED)) {
+            this.tryEmit(inputDataClone);
+        }
+    },
+
+    /**
+     * return the state of the recognizer
+     * the actual recognizing happens in this method
+     * @virtual
+     * @param {Object} inputData
+     * @returns {Const} STATE
+     */
+    process: function(inputData) { }, // jshint ignore:line
+
+    /**
+     * return the preferred touch-action
+     * @virtual
+     * @returns {Array}
+     */
+    getTouchAction: function() { },
+
+    /**
+     * called when the gesture isn't allowed to recognize
+     * like when another is being recognized or it is disabled
+     * @virtual
+     */
+    reset: function() { }
+};
+
+/**
+ * get a usable string, used as event postfix
+ * @param {Const} state
+ * @returns {String} state
+ */
+function stateStr(state) {
+    if (state & STATE_CANCELLED) {
+        return 'cancel';
+    } else if (state & STATE_ENDED) {
+        return 'end';
+    } else if (state & STATE_CHANGED) {
+        return 'move';
+    } else if (state & STATE_BEGAN) {
+        return 'start';
+    }
+    return '';
+}
+
+/**
+ * direction cons to string
+ * @param {Const} direction
+ * @returns {String}
+ */
+function directionStr(direction) {
+    if (direction == DIRECTION_DOWN) {
+        return 'down';
+    } else if (direction == DIRECTION_UP) {
+        return 'up';
+    } else if (direction == DIRECTION_LEFT) {
+        return 'left';
+    } else if (direction == DIRECTION_RIGHT) {
+        return 'right';
+    }
+    return '';
+}
+
+/**
+ * get a recognizer by name if it is bound to a manager
+ * @param {Recognizer|String} otherRecognizer
+ * @param {Recognizer} recognizer
+ * @returns {Recognizer}
+ */
+function getRecognizerByNameIfManager(otherRecognizer, recognizer) {
+    var manager = recognizer.manager;
+    if (manager) {
+        return manager.get(otherRecognizer);
+    }
+    return otherRecognizer;
+}
+
+/**
+ * This recognizer is just used as a base for the simple attribute recognizers.
+ * @constructor
+ * @extends Recognizer
+ */
+function AttrRecognizer() {
+    Recognizer.apply(this, arguments);
+}
+
+inherit(AttrRecognizer, Recognizer, {
+    /**
+     * @namespace
+     * @memberof AttrRecognizer
+     */
+    defaults: {
+        /**
+         * @type {Number}
+         * @default 1
+         */
+        pointers: 1
+    },
+
+    /**
+     * Used to check if it the recognizer receives valid input, like input.distance > 10.
+     * @memberof AttrRecognizer
+     * @param {Object} input
+     * @returns {Boolean} recognized
+     */
+    attrTest: function(input) {
+        var optionPointers = this.options.pointers;
+        return optionPointers === 0 || input.pointers.length === optionPointers;
+    },
+
+    /**
+     * Process the input and return the state for the recognizer
+     * @memberof AttrRecognizer
+     * @param {Object} input
+     * @returns {*} State
+     */
+    process: function(input) {
+        var state = this.state;
+        var eventType = input.eventType;
+
+        var isRecognized = state & (STATE_BEGAN | STATE_CHANGED);
+        var isValid = this.attrTest(input);
+
+        // on cancel input and we've recognized before, return STATE_CANCELLED
+        if (isRecognized && (eventType & INPUT_CANCEL || !isValid)) {
+            return state | STATE_CANCELLED;
+        } else if (isRecognized || isValid) {
+            if (eventType & INPUT_END) {
+                return state | STATE_ENDED;
+            } else if (!(state & STATE_BEGAN)) {
+                return STATE_BEGAN;
+            }
+            return state | STATE_CHANGED;
+        }
+        return STATE_FAILED;
+    }
+});
+
+/**
+ * Pan
+ * Recognized when the pointer is down and moved in the allowed direction.
+ * @constructor
+ * @extends AttrRecognizer
+ */
+function PanRecognizer() {
+    AttrRecognizer.apply(this, arguments);
+
+    this.pX = null;
+    this.pY = null;
+}
+
+inherit(PanRecognizer, AttrRecognizer, {
+    /**
+     * @namespace
+     * @memberof PanRecognizer
+     */
+    defaults: {
+        event: 'pan',
+        threshold: 10,
+        pointers: 1,
+        direction: DIRECTION_ALL
+    },
+
+    getTouchAction: function() {
+        var direction = this.options.direction;
+        var actions = [];
+        if (direction & DIRECTION_HORIZONTAL) {
+            actions.push(TOUCH_ACTION_PAN_Y);
+        }
+        if (direction & DIRECTION_VERTICAL) {
+            actions.push(TOUCH_ACTION_PAN_X);
+        }
+        return actions;
+    },
+
+    directionTest: function(input) {
+        var options = this.options;
+        var hasMoved = true;
+        var distance = input.distance;
+        var direction = input.direction;
+        var x = input.deltaX;
+        var y = input.deltaY;
+
+        // lock to axis?
+        if (!(direction & options.direction)) {
+            if (options.direction & DIRECTION_HORIZONTAL) {
+                direction = (x === 0) ? DIRECTION_NONE : (x < 0) ? DIRECTION_LEFT : DIRECTION_RIGHT;
+                hasMoved = x != this.pX;
+                distance = Math.abs(input.deltaX);
+            } else {
+                direction = (y === 0) ? DIRECTION_NONE : (y < 0) ? DIRECTION_UP : DIRECTION_DOWN;
+                hasMoved = y != this.pY;
+                distance = Math.abs(input.deltaY);
+            }
+        }
+        input.direction = direction;
+        return hasMoved && distance > options.threshold && direction & options.direction;
+    },
+
+    attrTest: function(input) {
+        return AttrRecognizer.prototype.attrTest.call(this, input) &&
+            (this.state & STATE_BEGAN || (!(this.state & STATE_BEGAN) && this.directionTest(input)));
+    },
+
+    emit: function(input) {
+        this.pX = input.deltaX;
+        this.pY = input.deltaY;
+
+        var direction = directionStr(input.direction);
+        if (direction) {
+            this.manager.emit(this.options.event + direction, input);
+        }
+
+        this._super.emit.call(this, input);
+    }
+});
+
+/**
+ * Pinch
+ * Recognized when two or more pointers are moving toward (zoom-in) or away from each other (zoom-out).
+ * @constructor
+ * @extends AttrRecognizer
+ */
+function PinchRecognizer() {
+    AttrRecognizer.apply(this, arguments);
+}
+
+inherit(PinchRecognizer, AttrRecognizer, {
+    /**
+     * @namespace
+     * @memberof PinchRecognizer
+     */
+    defaults: {
+        event: 'pinch',
+        threshold: 0,
+        pointers: 2
+    },
+
+    getTouchAction: function() {
+        return [TOUCH_ACTION_NONE];
+    },
+
+    attrTest: function(input) {
+        return this._super.attrTest.call(this, input) &&
+            (Math.abs(input.scale - 1) > this.options.threshold || this.state & STATE_BEGAN);
+    },
+
+    emit: function(input) {
+        this._super.emit.call(this, input);
+        if (input.scale !== 1) {
+            var inOut = input.scale < 1 ? 'in' : 'out';
+            this.manager.emit(this.options.event + inOut, input);
+        }
+    }
+});
+
+/**
+ * Press
+ * Recognized when the pointer is down for x ms without any movement.
+ * @constructor
+ * @extends Recognizer
+ */
+function PressRecognizer() {
+    Recognizer.apply(this, arguments);
+
+    this._timer = null;
+    this._input = null;
+}
+
+inherit(PressRecognizer, Recognizer, {
+    /**
+     * @namespace
+     * @memberof PressRecognizer
+     */
+    defaults: {
+        event: 'press',
+        pointers: 1,
+        time: 500, // minimal time of the pointer to be pressed
+        threshold: 5 // a minimal movement is ok, but keep it low
+    },
+
+    getTouchAction: function() {
+        return [TOUCH_ACTION_AUTO];
+    },
+
+    process: function(input) {
+        var options = this.options;
+        var validPointers = input.pointers.length === options.pointers;
+        var validMovement = input.distance < options.threshold;
+        var validTime = input.deltaTime > options.time;
+
+        this._input = input;
+
+        // we only allow little movement
+        // and we've reached an end event, so a tap is possible
+        if (!validMovement || !validPointers || (input.eventType & (INPUT_END | INPUT_CANCEL) && !validTime)) {
+            this.reset();
+        } else if (input.eventType & INPUT_START) {
+            this.reset();
+            this._timer = setTimeoutContext(function() {
+                this.state = STATE_RECOGNIZED;
+                this.tryEmit();
+            }, options.time, this);
+        } else if (input.eventType & INPUT_END) {
+            return STATE_RECOGNIZED;
+        }
+        return STATE_FAILED;
+    },
+
+    reset: function() {
+        clearTimeout(this._timer);
+    },
+
+    emit: function(input) {
+        if (this.state !== STATE_RECOGNIZED) {
+            return;
+        }
+
+        if (input && (input.eventType & INPUT_END)) {
+            this.manager.emit(this.options.event + 'up', input);
+        } else {
+            this._input.timeStamp = now();
+            this.manager.emit(this.options.event, this._input);
+        }
+    }
+});
+
+/**
+ * Rotate
+ * Recognized when two or more pointer are moving in a circular motion.
+ * @constructor
+ * @extends AttrRecognizer
+ */
+function RotateRecognizer() {
+    AttrRecognizer.apply(this, arguments);
+}
+
+inherit(RotateRecognizer, AttrRecognizer, {
+    /**
+     * @namespace
+     * @memberof RotateRecognizer
+     */
+    defaults: {
+        event: 'rotate',
+        threshold: 0,
+        pointers: 2
+    },
+
+    getTouchAction: function() {
+        return [TOUCH_ACTION_NONE];
+    },
+
+    attrTest: function(input) {
+        return this._super.attrTest.call(this, input) &&
+            (Math.abs(input.rotation) > this.options.threshold || this.state & STATE_BEGAN);
+    }
+});
+
+/**
+ * Swipe
+ * Recognized when the pointer is moving fast (velocity), with enough distance in the allowed direction.
+ * @constructor
+ * @extends AttrRecognizer
+ */
+function SwipeRecognizer() {
+    AttrRecognizer.apply(this, arguments);
+}
+
+inherit(SwipeRecognizer, AttrRecognizer, {
+    /**
+     * @namespace
+     * @memberof SwipeRecognizer
+     */
+    defaults: {
+        event: 'swipe',
+        threshold: 10,
+        velocity: 0.65,
+        direction: DIRECTION_HORIZONTAL | DIRECTION_VERTICAL,
+        pointers: 1
+    },
+
+    getTouchAction: function() {
+        return PanRecognizer.prototype.getTouchAction.call(this);
+    },
+
+    attrTest: function(input) {
+        var direction = this.options.direction;
+        var velocity;
+
+        if (direction & (DIRECTION_HORIZONTAL | DIRECTION_VERTICAL)) {
+            velocity = input.velocity;
+        } else if (direction & DIRECTION_HORIZONTAL) {
+            velocity = input.velocityX;
+        } else if (direction & DIRECTION_VERTICAL) {
+            velocity = input.velocityY;
+        }
+
+        return this._super.attrTest.call(this, input) &&
+            direction & input.direction &&
+            input.distance > this.options.threshold &&
+            abs(velocity) > this.options.velocity && input.eventType & INPUT_END;
+    },
+
+    emit: function(input) {
+        var direction = directionStr(input.direction);
+        if (direction) {
+            this.manager.emit(this.options.event + direction, input);
+        }
+
+        this.manager.emit(this.options.event, input);
+    }
+});
+
+/**
+ * A tap is ecognized when the pointer is doing a small tap/click. Multiple taps are recognized if they occur
+ * between the given interval and position. The delay option can be used to recognize multi-taps without firing
+ * a single tap.
+ *
+ * The eventData from the emitted event contains the property `tapCount`, which contains the amount of
+ * multi-taps being recognized.
+ * @constructor
+ * @extends Recognizer
+ */
+function TapRecognizer() {
+    Recognizer.apply(this, arguments);
+
+    // previous time and center,
+    // used for tap counting
+    this.pTime = false;
+    this.pCenter = false;
+
+    this._timer = null;
+    this._input = null;
+    this.count = 0;
+}
+
+inherit(TapRecognizer, Recognizer, {
+    /**
+     * @namespace
+     * @memberof PinchRecognizer
+     */
+    defaults: {
+        event: 'tap',
+        pointers: 1,
+        taps: 1,
+        interval: 300, // max time between the multi-tap taps
+        time: 250, // max time of the pointer to be down (like finger on the screen)
+        threshold: 2, // a minimal movement is ok, but keep it low
+        posThreshold: 10 // a multi-tap can be a bit off the initial position
+    },
+
+    getTouchAction: function() {
+        return [TOUCH_ACTION_MANIPULATION];
+    },
+
+    process: function(input) {
+        var options = this.options;
+
+        var validPointers = input.pointers.length === options.pointers;
+        var validMovement = input.distance < options.threshold;
+        var validTouchTime = input.deltaTime < options.time;
+
+        this.reset();
+
+        if ((input.eventType & INPUT_START) && (this.count === 0)) {
+            return this.failTimeout();
+        }
+
+        // we only allow little movement
+        // and we've reached an end event, so a tap is possible
+        if (validMovement && validTouchTime && validPointers) {
+            if (input.eventType != INPUT_END) {
+                return this.failTimeout();
+            }
+
+            var validInterval = this.pTime ? (input.timeStamp - this.pTime < options.interval) : true;
+            var validMultiTap = !this.pCenter || getDistance(this.pCenter, input.center) < options.posThreshold;
+
+            this.pTime = input.timeStamp;
+            this.pCenter = input.center;
+
+            if (!validMultiTap || !validInterval) {
+                this.count = 1;
+            } else {
+                this.count += 1;
+            }
+
+            this._input = input;
+
+            // if tap count matches we have recognized it,
+            // else it has began recognizing...
+            var tapCount = this.count % options.taps;
+            if (tapCount === 0) {
+                // no failing requirements, immediately trigger the tap event
+                // or wait as long as the multitap interval to trigger
+                if (!this.hasRequireFailures()) {
+                    return STATE_RECOGNIZED;
+                } else {
+                    this._timer = setTimeoutContext(function() {
+                        this.state = STATE_RECOGNIZED;
+                        this.tryEmit();
+                    }, options.interval, this);
+                    return STATE_BEGAN;
+                }
+            }
+        }
+        return STATE_FAILED;
+    },
+
+    failTimeout: function() {
+        this._timer = setTimeoutContext(function() {
+            this.state = STATE_FAILED;
+        }, this.options.interval, this);
+        return STATE_FAILED;
+    },
+
+    reset: function() {
+        clearTimeout(this._timer);
+    },
+
+    emit: function() {
+        if (this.state == STATE_RECOGNIZED ) {
+            this._input.tapCount = this.count;
+            this.manager.emit(this.options.event, this._input);
+        }
+    }
+});
+
+/**
+ * Simple way to create an manager with a default set of recognizers.
+ * @param {HTMLElement} element
+ * @param {Object} [options]
+ * @constructor
+ */
+function Hammer(element, options) {
+    options = options || {};
+    options.recognizers = ifUndefined(options.recognizers, Hammer.defaults.preset);
+    return new Manager(element, options);
+}
+
+/**
+ * @const {string}
+ */
+Hammer.VERSION = '2.0.4';
+
+/**
+ * default settings
+ * @namespace
+ */
+Hammer.defaults = {
+    /**
+     * set if DOM events are being triggered.
+     * But this is slower and unused by simple implementations, so disabled by default.
+     * @type {Boolean}
+     * @default false
+     */
+    domEvents: false,
+
+    /**
+     * The value for the touchAction property/fallback.
+     * When set to `compute` it will magically set the correct value based on the added recognizers.
+     * @type {String}
+     * @default compute
+     */
+    touchAction: TOUCH_ACTION_COMPUTE,
+
+    /**
+     * @type {Boolean}
+     * @default true
+     */
+    enable: true,
+
+    /**
+     * EXPERIMENTAL FEATURE -- can be removed/changed
+     * Change the parent input target element.
+     * If Null, then it is being set the to main element.
+     * @type {Null|EventTarget}
+     * @default null
+     */
+    inputTarget: null,
+
+    /**
+     * force an input class
+     * @type {Null|Function}
+     * @default null
+     */
+    inputClass: null,
+
+    /**
+     * Default recognizer setup when calling `Hammer()`
+     * When creating a new Manager these will be skipped.
+     * @type {Array}
+     */
+    preset: [
+        // RecognizerClass, options, [recognizeWith, ...], [requireFailure, ...]
+        [RotateRecognizer, { enable: false }],
+        [PinchRecognizer, { enable: false }, ['rotate']],
+        [SwipeRecognizer,{ direction: DIRECTION_HORIZONTAL }],
+        [PanRecognizer, { direction: DIRECTION_HORIZONTAL }, ['swipe']],
+        [TapRecognizer],
+        [TapRecognizer, { event: 'doubletap', taps: 2 }, ['tap']],
+        [PressRecognizer]
+    ],
+
+    /**
+     * Some CSS properties can be used to improve the working of Hammer.
+     * Add them to this method and they will be set when creating a new Manager.
+     * @namespace
+     */
+    cssProps: {
+        /**
+         * Disables text selection to improve the dragging gesture. Mainly for desktop browsers.
+         * @type {String}
+         * @default 'none'
+         */
+        userSelect: 'none',
+
+        /**
+         * Disable the Windows Phone grippers when pressing an element.
+         * @type {String}
+         * @default 'none'
+         */
+        touchSelect: 'none',
+
+        /**
+         * Disables the default callout shown when you touch and hold a touch target.
+         * On iOS, when you touch and hold a touch target such as a link, Safari displays
+         * a callout containing information about the link. This property allows you to disable that callout.
+         * @type {String}
+         * @default 'none'
+         */
+        touchCallout: 'none',
+
+        /**
+         * Specifies whether zooming is enabled. Used by IE10>
+         * @type {String}
+         * @default 'none'
+         */
+        contentZooming: 'none',
+
+        /**
+         * Specifies that an entire element should be draggable instead of its contents. Mainly for desktop browsers.
+         * @type {String}
+         * @default 'none'
+         */
+        userDrag: 'none',
+
+        /**
+         * Overrides the highlight color shown when the user taps a link or a JavaScript
+         * clickable element in iOS. This property obeys the alpha value, if specified.
+         * @type {String}
+         * @default 'rgba(0,0,0,0)'
+         */
+        tapHighlightColor: 'rgba(0,0,0,0)'
+    }
+};
+
+var STOP = 1;
+var FORCED_STOP = 2;
+
+/**
+ * Manager
+ * @param {HTMLElement} element
+ * @param {Object} [options]
+ * @constructor
+ */
+function Manager(element, options) {
+    options = options || {};
+
+    this.options = merge(options, Hammer.defaults);
+    this.options.inputTarget = this.options.inputTarget || element;
+
+    this.handlers = {};
+    this.session = {};
+    this.recognizers = [];
+
+    this.element = element;
+    this.input = createInputInstance(this);
+    this.touchAction = new TouchAction(this, this.options.touchAction);
+
+    toggleCssProps(this, true);
+
+    each(options.recognizers, function(item) {
+        var recognizer = this.add(new (item[0])(item[1]));
+        item[2] && recognizer.recognizeWith(item[2]);
+        item[3] && recognizer.requireFailure(item[3]);
+    }, this);
+}
+
+Manager.prototype = {
+    /**
+     * set options
+     * @param {Object} options
+     * @returns {Manager}
+     */
+    set: function(options) {
+        extend(this.options, options);
+
+        // Options that need a little more setup
+        if (options.touchAction) {
+            this.touchAction.update();
+        }
+        if (options.inputTarget) {
+            // Clean up existing event listeners and reinitialize
+            this.input.destroy();
+            this.input.target = options.inputTarget;
+            this.input.init();
+        }
+        return this;
+    },
+
+    /**
+     * stop recognizing for this session.
+     * This session will be discarded, when a new [input]start event is fired.
+     * When forced, the recognizer cycle is stopped immediately.
+     * @param {Boolean} [force]
+     */
+    stop: function(force) {
+        this.session.stopped = force ? FORCED_STOP : STOP;
+    },
+
+    /**
+     * run the recognizers!
+     * called by the inputHandler function on every movement of the pointers (touches)
+     * it walks through all the recognizers and tries to detect the gesture that is being made
+     * @param {Object} inputData
+     */
+    recognize: function(inputData) {
+        var session = this.session;
+        if (session.stopped) {
+            return;
+        }
+
+        // run the touch-action polyfill
+        this.touchAction.preventDefaults(inputData);
+
+        var recognizer;
+        var recognizers = this.recognizers;
+
+        // this holds the recognizer that is being recognized.
+        // so the recognizer's state needs to be BEGAN, CHANGED, ENDED or RECOGNIZED
+        // if no recognizer is detecting a thing, it is set to `null`
+        var curRecognizer = session.curRecognizer;
+
+        // reset when the last recognizer is recognized
+        // or when we're in a new session
+        if (!curRecognizer || (curRecognizer && curRecognizer.state & STATE_RECOGNIZED)) {
+            curRecognizer = session.curRecognizer = null;
+        }
+
+        var i = 0;
+        while (i < recognizers.length) {
+            recognizer = recognizers[i];
+
+            // find out if we are allowed try to recognize the input for this one.
+            // 1.   allow if the session is NOT forced stopped (see the .stop() method)
+            // 2.   allow if we still haven't recognized a gesture in this session, or the this recognizer is the one
+            //      that is being recognized.
+            // 3.   allow if the recognizer is allowed to run simultaneous with the current recognized recognizer.
+            //      this can be setup with the `recognizeWith()` method on the recognizer.
+            if (session.stopped !== FORCED_STOP && ( // 1
+                    !curRecognizer || recognizer == curRecognizer || // 2
+                    recognizer.canRecognizeWith(curRecognizer))) { // 3
+                recognizer.recognize(inputData);
+            } else {
+                recognizer.reset();
+            }
+
+            // if the recognizer has been recognizing the input as a valid gesture, we want to store this one as the
+            // current active recognizer. but only if we don't already have an active recognizer
+            if (!curRecognizer && recognizer.state & (STATE_BEGAN | STATE_CHANGED | STATE_ENDED)) {
+                curRecognizer = session.curRecognizer = recognizer;
+            }
+            i++;
+        }
+    },
+
+    /**
+     * get a recognizer by its event name.
+     * @param {Recognizer|String} recognizer
+     * @returns {Recognizer|Null}
+     */
+    get: function(recognizer) {
+        if (recognizer instanceof Recognizer) {
+            return recognizer;
+        }
+
+        var recognizers = this.recognizers;
+        for (var i = 0; i < recognizers.length; i++) {
+            if (recognizers[i].options.event == recognizer) {
+                return recognizers[i];
+            }
+        }
+        return null;
+    },
+
+    /**
+     * add a recognizer to the manager
+     * existing recognizers with the same event name will be removed
+     * @param {Recognizer} recognizer
+     * @returns {Recognizer|Manager}
+     */
+    add: function(recognizer) {
+        if (invokeArrayArg(recognizer, 'add', this)) {
+            return this;
+        }
+
+        // remove existing
+        var existing = this.get(recognizer.options.event);
+        if (existing) {
+            this.remove(existing);
+        }
+
+        this.recognizers.push(recognizer);
+        recognizer.manager = this;
+
+        this.touchAction.update();
+        return recognizer;
+    },
+
+    /**
+     * remove a recognizer by name or instance
+     * @param {Recognizer|String} recognizer
+     * @returns {Manager}
+     */
+    remove: function(recognizer) {
+        if (invokeArrayArg(recognizer, 'remove', this)) {
+            return this;
+        }
+
+        var recognizers = this.recognizers;
+        recognizer = this.get(recognizer);
+        recognizers.splice(inArray(recognizers, recognizer), 1);
+
+        this.touchAction.update();
+        return this;
+    },
+
+    /**
+     * bind event
+     * @param {String} events
+     * @param {Function} handler
+     * @returns {EventEmitter} this
+     */
+    on: function(events, handler) {
+        var handlers = this.handlers;
+        each(splitStr(events), function(event) {
+            handlers[event] = handlers[event] || [];
+            handlers[event].push(handler);
+        });
+        return this;
+    },
+
+    /**
+     * unbind event, leave emit blank to remove all handlers
+     * @param {String} events
+     * @param {Function} [handler]
+     * @returns {EventEmitter} this
+     */
+    off: function(events, handler) {
+        var handlers = this.handlers;
+        each(splitStr(events), function(event) {
+            if (!handler) {
+                delete handlers[event];
+            } else {
+                handlers[event].splice(inArray(handlers[event], handler), 1);
+            }
+        });
+        return this;
+    },
+
+    /**
+     * emit event to the listeners
+     * @param {String} event
+     * @param {Object} data
+     */
+    emit: function(event, data) {
+        // we also want to trigger dom events
+        if (this.options.domEvents) {
+            triggerDomEvent(event, data);
+        }
+
+        // no handlers, so skip it all
+        var handlers = this.handlers[event] && this.handlers[event].slice();
+        if (!handlers || !handlers.length) {
+            return;
+        }
+
+        data.type = event;
+        data.preventDefault = function() {
+            data.srcEvent.preventDefault();
+        };
+
+        var i = 0;
+        while (i < handlers.length) {
+            handlers[i](data);
+            i++;
+        }
+    },
+
+    /**
+     * destroy the manager and unbinds all events
+     * it doesn't unbind dom events, that is the user own responsibility
+     */
+    destroy: function() {
+        this.element && toggleCssProps(this, false);
+
+        this.handlers = {};
+        this.session = {};
+        this.input.destroy();
+        this.element = null;
+    }
+};
+
+/**
+ * add/remove the css properties as defined in manager.options.cssProps
+ * @param {Manager} manager
+ * @param {Boolean} add
+ */
+function toggleCssProps(manager, add) {
+    var element = manager.element;
+    each(manager.options.cssProps, function(value, name) {
+        element.style[prefixed(element.style, name)] = add ? value : '';
+    });
+}
+
+/**
+ * trigger dom event
+ * @param {String} event
+ * @param {Object} data
+ */
+function triggerDomEvent(event, data) {
+    var gestureEvent = document.createEvent('Event');
+    gestureEvent.initEvent(event, true, true);
+    gestureEvent.gesture = data;
+    data.target.dispatchEvent(gestureEvent);
+}
+
+extend(Hammer, {
+    INPUT_START: INPUT_START,
+    INPUT_MOVE: INPUT_MOVE,
+    INPUT_END: INPUT_END,
+    INPUT_CANCEL: INPUT_CANCEL,
+
+    STATE_POSSIBLE: STATE_POSSIBLE,
+    STATE_BEGAN: STATE_BEGAN,
+    STATE_CHANGED: STATE_CHANGED,
+    STATE_ENDED: STATE_ENDED,
+    STATE_RECOGNIZED: STATE_RECOGNIZED,
+    STATE_CANCELLED: STATE_CANCELLED,
+    STATE_FAILED: STATE_FAILED,
+
+    DIRECTION_NONE: DIRECTION_NONE,
+    DIRECTION_LEFT: DIRECTION_LEFT,
+    DIRECTION_RIGHT: DIRECTION_RIGHT,
+    DIRECTION_UP: DIRECTION_UP,
+    DIRECTION_DOWN: DIRECTION_DOWN,
+    DIRECTION_HORIZONTAL: DIRECTION_HORIZONTAL,
+    DIRECTION_VERTICAL: DIRECTION_VERTICAL,
+    DIRECTION_ALL: DIRECTION_ALL,
+
+    Manager: Manager,
+    Input: Input,
+    TouchAction: TouchAction,
+
+    TouchInput: TouchInput,
+    MouseInput: MouseInput,
+    PointerEventInput: PointerEventInput,
+    TouchMouseInput: TouchMouseInput,
+    SingleTouchInput: SingleTouchInput,
+
+    Recognizer: Recognizer,
+    AttrRecognizer: AttrRecognizer,
+    Tap: TapRecognizer,
+    Pan: PanRecognizer,
+    Swipe: SwipeRecognizer,
+    Pinch: PinchRecognizer,
+    Rotate: RotateRecognizer,
+    Press: PressRecognizer,
+
+    on: addEventListeners,
+    off: removeEventListeners,
+    each: each,
+    merge: merge,
+    extend: extend,
+    inherit: inherit,
+    bindFn: bindFn,
+    prefixed: prefixed
+});
+
+if (typeof define == TYPE_FUNCTION && define.amd) {
+    define(function() {
+        return Hammer;
+    });
+} else if (typeof module != 'undefined' && module.exports) {
+    module.exports = Hammer;
+} else {
+    window[exportName] = Hammer;
+}
+
+})(window, document, 'Hammer');
+
+},{}],22:[function(require,module,exports){
 /**
  *  Copyright (c) 2014, Facebook, Inc.
  *  All rights reserved.
@@ -4833,7 +7583,3470 @@ typeof exports === 'object' ? module.exports = universalModule() :
   typeof define === 'function' && define.amd ? define(universalModule) :
     Immutable = universalModule();
 
-},{}],13:[function(require,module,exports){
+},{}],23:[function(require,module,exports){
+module.exports = require('./lib/draggable');
+
+},{"./lib/draggable":24}],24:[function(require,module,exports){
+'use strict';
+
+var React = require('react/addons');
+var emptyFunction = require('react/lib/emptyFunction');
+
+// for accessing browser globals
+var root = typeof window !== 'undefined' ? window : this;
+var bodyElement;
+if (typeof document !== 'undefined' && 'body' in document) {
+	bodyElement = document.body;
+}
+
+function updateBoundState (state, bound) {
+	if (!bound) return state;
+	bound = String(bound);
+	var boundTop = !!~bound.indexOf('top');
+	var boundRight = !!~bound.indexOf('right');
+	var boundBottom = !!~bound.indexOf('bottom');
+	var boundLeft = !!~bound.indexOf('left');
+	var boundAll = !!~bound.indexOf('all') ||
+		!(boundTop || boundRight || boundBottom || boundLeft);
+	var boundBox = !~bound.indexOf('point');
+	state.boundTop = boundAll || boundTop;
+	state.boundRight = boundAll || boundRight;
+	state.boundBottom = boundAll || boundBottom;
+	state.boundLeft = boundAll || boundLeft;
+	state.boundBox = boundBox;
+	return state;
+};
+
+function createUIEvent(draggable) {
+	return {
+		position: {
+			top: draggable.state.offsetTop,
+			left: draggable.state.offsetLeft
+		}
+	};
+}
+
+function canDragY(draggable) {
+	return draggable.props.axis === 'both' ||
+			draggable.props.axis === 'y';
+}
+
+function canDragX(draggable) {
+	return draggable.props.axis === 'both' ||
+			draggable.props.axis === 'x';
+}
+
+function isFunction(func) {
+	return typeof func === 'function' || Object.prototype.toString.call(func) === '[object Function]'
+}
+
+// @credits https://gist.github.com/rogozhnikoff/a43cfed27c41e4e68cdc
+function findInArray(array, callback) {
+	for (var i = 0, length = array.length, element = null; i < length, element = array[i]; i++) {
+		if (callback.apply(callback, [element, i, array])) return element;
+	}
+}
+
+function matchesSelector(el, selector) {
+	var method = findInArray([
+		'matches',
+		'webkitMatchesSelector',
+		'mozMatchesSelector',
+		'msMatchesSelector',
+		'oMatchesSelector'
+	], function(method){
+		return isFunction(el[method]);
+	});
+
+	return el[method].call(el, selector);
+}
+
+// @credits: http://stackoverflow.com/questions/4817029/whats-the-best-way-to-detect-a-touch-screen-device-using-javascript/4819886#4819886
+var isTouchDevice = 'ontouchstart' in root // works on most browsers
+								 || 'onmsgesturechange' in root; // works on ie10 on ms surface
+
+// look ::handleDragStart
+//function isMultiTouch(e) {
+//  return e.touches && Array.isArray(e.touches) && e.touches.length > 1
+//}
+
+/**
+ * simple abstraction for dragging events names
+ * */
+var dragEventFor = (function () {
+	var eventsFor = {
+		touch: {
+			start: 'touchstart',
+			move: 'touchmove',
+			end: 'touchend'
+		},
+		mouse: {
+			start: 'mousedown',
+			move: 'mousemove',
+			end: 'mouseup'
+		}
+	};
+	return eventsFor[isTouchDevice ? 'touch' : 'mouse'];
+})();
+
+/**
+ * get {clientX, clientY} positions of control
+ * */
+function getControlPosition(e) {
+	var position = !isTouchDevice ? e : e.touches[0];
+	return {
+		clientX: position.clientX,
+		clientY: position.clientY
+	}
+}
+
+function addEvent(el, event, handler) {
+	if (!el) { return; }
+	if (el.attachEvent) {
+		el.attachEvent('on' + event, handler);
+	} else if (el.addEventListener) {
+		el.addEventListener(event, handler, true);
+	} else {
+		el['on' + event] = handler;
+	}
+}
+
+function removeEvent(el, event, handler) {
+	if (!el) { return; }
+	if (el.detachEvent) {
+		el.detachEvent('on' + event, handler);
+	} else if (el.removeEventListener) {
+		el.removeEventListener(event, handler, true);
+	} else {
+		el['on' + event] = null;
+	}
+}
+
+module.exports = React.createClass({
+	displayName: 'Draggable',
+
+	propTypes: {
+		/**
+		 * `axis` determines which axis the draggable can move.
+		 *
+		 * 'both' allows movement horizontally and vertically.
+		 * 'x' limits movement to horizontal axis.
+		 * 'y' limits movement to vertical axis.
+		 *
+		 * Defaults to 'both'.
+		 */
+		axis: React.PropTypes.oneOf(['both', 'x', 'y']),
+
+		/**
+		 * `handle` specifies a selector to be used as the handle that initiates drag.
+		 *
+		 * Example:
+		 *
+		 * ```jsx
+		 * 	var App = React.createClass({
+		 * 	    render: function () {
+		 * 	    	return (
+		 * 	    	 	<Draggable handle=".handle">
+		 * 	    	 	  <div>
+		 * 	    	 	      <div className="handle">Click me to drag</div>
+		 * 	    	 	      <div>This is some other content</div>
+		 * 	    	 	  </div>
+		 * 	    		</Draggable>
+		 * 	    	);
+		 * 	    }
+		 * 	});
+		 * ```
+		 */
+		handle: React.PropTypes.string,
+
+		/**
+		 * `cancel` specifies a selector to be used to prevent drag initialization.
+		 *
+		 * Example:
+		 *
+		 * ```jsx
+		 * 	var App = React.createClass({
+		 * 	    render: function () {
+		 * 	        return(
+		 * 	            <Draggable cancel=".cancel">
+		 * 	                <div>
+		 * 	                	<div className="cancel">You can't drag from here</div>
+		 *						<div>Dragging here works fine</div>
+		 * 	                </div>
+		 * 	            </Draggable>
+		 * 	        );
+		 * 	    }
+		 * 	});
+		 * ```
+		 */
+		cancel: React.PropTypes.string,
+
+		/**
+		 * `bound` determines whether to bound the movement to the parent box.
+		 *
+		 * The property takes a list of space-separated strings. The Draggable
+		 * is bounded by the nearest DOMNode.offsetParent. To set the offset
+		 * parent, give it a position value other than 'static'.
+		 *
+		 * Optionally choose one or more bounds from:
+		 * 'top' bounds movement to the top edge of the parent box.
+		 * 'right' bounds movement to the right edge of the parent box.
+		 * 'bottom' bounds movement to the bottom edge of the parent box.
+		 * 'left' bounds movement to the left edge of the parent box.
+		 * 'all' bounds movement to all edges (default if not specified).
+		 *
+		 * Optionally choose one anchor from:
+		 * 'point' to constrain only the top-left corner.
+		 * 'box' to constrain the entire box (default if not specified).
+		 *
+		 * You may use more than one bound, e.g. 'top left point'. Set to a
+		 * falsy value to disable.
+		 *
+		 * Defaults to 'all box'.
+		 */
+		bound: React.PropTypes.string,
+
+		/**
+		 * `grid` specifies the x and y that dragging should snap to.
+		 *
+		 * Example:
+		 *
+		 * ```jsx
+		 *   var App = React.createClass({
+		 *       render: function () {
+		 *           return (
+		 * 	            <Draggable grid={[25, 25]}>
+		 *                   <div>I snap to a 25 x 25 grid</div>
+		 *               </Draggable>
+		 *           );
+		 * 	    }
+		 *   });
+		 * ```
+		 */
+		grid: React.PropTypes.arrayOf(React.PropTypes.number),
+
+		/**
+		 * `constrain` takes a function to constrain the dragging.
+		 *
+		 * Example:
+		 *
+		 * ```jsx
+		 *   function constrain (snap) {
+		 *         function constrainOffset (offset, prev) {
+		 *               var delta = offset - prev;
+		 *               if (Math.abs(delta) >= snap) {
+		 *                     return prev + (delta < 0 ? -snap : snap);
+		 *               }
+		 *               return prev;
+		 *         }
+		 *         return function (pos) {
+		 *               return {
+		 *                     top: constrainOffset(pos.top, pos.prevTop),
+		 *                     left: constrainOffset(pos.left, pos.prevLeft)
+		 *               };
+		 *         };
+		 *   }
+		 *   var App = React.createClass({
+		 *       render: function () {
+		 *           return (
+		 *               <Draggable constrain={constrain}>
+		 *                   <div>I snap to a 25 x 25 grid</div>
+		 *               </Draggable>
+		 *           );
+		 *       }
+		 *   });
+		 * ```
+		 */
+		constrain: React.PropTypes.func,
+
+		/**
+		 * `start` specifies the x and y that the dragged item should start at
+		 *
+		 * Example:
+		 *
+		 * ```jsx
+		 * 	var App = React.createClass({
+		 * 	    render: function () {
+		 * 	        return (
+		 * 	            <Draggable start={{x: 25, y: 25}}>
+		 * 	                <div>I start with left: 25px; top: 25px;</div>
+		 * 	            </Draggable>
+		 * 	        );
+		 * 	    }
+		 * 	});
+		 * ```
+		 */
+		start: React.PropTypes.object,
+
+		/**
+		 * `zIndex` specifies the zIndex to use while dragging.
+		 *
+		 * Example:
+		 *
+		 * ```jsx
+		 * 	var App = React.createClass({
+		 * 	    render: function () {
+		 * 	        return (
+		 * 	            <Draggable zIndex={100}>
+		 * 	                <div>I have a zIndex</div>
+		 * 	            </Draggable>
+		 * 	        );
+		 * 	    }
+		 * 	});
+		 * ```
+		 */
+		zIndex: React.PropTypes.number,
+
+		/**
+		 * `useChild` determines whether to use the first child as root.
+		 *
+		 * If false, a div is created. This option is required if any children
+		 * have a ref.
+		 *
+		 * Defaults to true.
+		 */
+		useChild: React.PropTypes.bool,
+
+		/**
+		 * Called when dragging starts.
+		 *
+		 * Example:
+		 *
+		 * ```js
+		 *	function (event, ui) {}
+		 * ```
+		 *
+		 * `event` is the Event that was triggered.
+		 * `ui` is an object:
+		 *
+		 * ```js
+		 *	{
+		 *		position: {top: 0, left: 0}
+		 *	}
+		 * ```
+		 */
+		onStart: React.PropTypes.func,
+
+		/**
+		 * Called while dragging.
+		 *
+		 * Example:
+		 *
+		 * ```js
+		 *	function (event, ui) {}
+		 * ```
+		 *
+		 * `event` is the Event that was triggered.
+		 * `ui` is an object:
+		 *
+		 * ```js
+		 *	{
+		 *		position: {top: 0, left: 0}
+		 *	}
+		 * ```
+		 */
+		onDrag: React.PropTypes.func,
+
+		/**
+		 * Called when dragging stops.
+		 *
+		 * Example:
+		 *
+		 * ```js
+		 *	function (event, ui) {}
+		 * ```
+		 *
+		 * `event` is the Event that was triggered.
+		 * `ui` is an object:
+		 *
+		 * ```js
+		 *	{
+		 *		position: {top: 0, left: 0}
+		 *	}
+		 * ```
+		 */
+		onStop: React.PropTypes.func,
+
+		/**
+		 * A workaround option which can be passed if onMouseDown needs to be accessed, since it'll always be blocked (due to that there's internal use of onMouseDown)
+		 *
+		 */
+		onMouseDown: React.PropTypes.func
+	},
+
+	getDefaultProps: function () {
+		return {
+			axis: 'both',
+			bound: null,
+			handle: null,
+			cancel: null,
+			grid: null,
+			start: {},
+			zIndex: NaN,
+			useChild: true,
+			onStart: emptyFunction,
+			onDrag: emptyFunction,
+			onStop: emptyFunction,
+			onMouseDown: emptyFunction
+		};
+	},
+
+	getInitialState: function () {
+		var state = {
+			// Whether or not currently dragging
+			dragging: false,
+
+			// Pointer offset on screen
+			clientX: 0, clientY: 0,
+
+			// DOMNode offset relative to parent
+			offsetLeft: this.props.start.x || 0, offsetTop: this.props.start.y || 0
+		};
+
+		updateBoundState(state, this.props.bound);
+
+		return state;
+	},
+
+	componentWillReceiveProps: function (nextProps) {
+		var state = updateBoundState({}, nextProps.bound);
+		if (nextProps.start) {
+			if (nextProps.start.x != null) {
+				state.offsetLeft = nextProps.start.x || 0;
+			}
+			if (nextProps.start.y != null) {
+				state.offsetTop = nextProps.start.y || 0;
+			}
+		}
+		this.setState(state);
+	},
+
+	componentWillUnmount: function() {
+		// Remove any leftover event handlers
+		removeEvent(root, dragEventFor['move'], this.handleDrag);
+		removeEvent(root, dragEventFor['end'], this.handleDragEnd);
+	},
+
+	handleDragStart: function (e) {
+		// todo: write right implementation to prevent multitouch drag
+		// prevent multi-touch events
+		// if (isMultiTouch(e)) {
+		//     this.handleDragEnd.apply(e, arguments);
+		//     return
+		// }
+
+		// Make it possible to attach event handlers on top of this one
+		this.props.onMouseDown(e);
+
+		// Short circuit if handle or cancel prop was provided and selector doesn't match
+		if ((this.props.handle && !matchesSelector(e.target, this.props.handle)) ||
+			(this.props.cancel && matchesSelector(e.target, this.props.cancel))) {
+			return;
+		}
+
+		var dragPoint = getControlPosition(e);
+
+		// Initiate dragging
+		this.setState({
+			dragging: true,
+			clientX: dragPoint.clientX,
+			clientY: dragPoint.clientY
+		});
+
+		// Call event handler
+		this.props.onStart(e, createUIEvent(this));
+
+		// Add event handlers
+		addEvent(root, dragEventFor['move'], this.handleDrag);
+		addEvent(root, dragEventFor['end'], this.handleDragEnd);
+
+		// Add dragging class to body element
+		if (bodyElement) bodyElement.className += ' react-draggable-dragging';
+	},
+
+	handleDragEnd: function (e) {
+		// Short circuit if not currently dragging
+		if (!this.state.dragging) {
+			return;
+		}
+
+		// Turn off dragging
+		this.setState({
+			dragging: false
+		});
+
+		// Call event handler
+		this.props.onStop(e, createUIEvent(this));
+
+		// Remove event handlers
+		removeEvent(root, dragEventFor['move'], this.handleDrag);
+		removeEvent(root, dragEventFor['end'], this.handleDragEnd);
+
+		// Remove dragging class from body element
+		if (bodyElement) {
+			var className = bodyElement.className;
+			bodyElement.className =
+				className.replace(/(?:^|\s+)react-draggable-dragging\b/, ' ');
+		}
+	},
+
+	handleDrag: function (e) {
+		var dragPoint = getControlPosition(e);
+		var offsetLeft = this._toPixels(this.state.offsetLeft);
+		var offsetTop = this._toPixels(this.state.offsetTop);
+
+		var state = {
+			offsetLeft: offsetLeft,
+			offsetTop: offsetTop
+		};
+
+		// Get parent DOM node
+		var node = this.getDOMNode();
+		var offsetParent = node.offsetParent;
+		var offset, boundingValue;
+
+		if (canDragX(this)) {
+			// Calculate updated position
+			offset = offsetLeft + dragPoint.clientX - this.state.clientX;
+
+			// Bound movement to parent box
+			if (this.state.boundLeft) {
+				boundingValue = state.offsetLeft - node.offsetLeft;
+				if (offset < boundingValue) {
+					offset = boundingValue;
+				}
+			}
+			if (this.state.boundRight) {
+				boundingValue += offsetParent.clientWidth;
+				if (this.state.boundBox) {
+					boundingValue -= node.offsetWidth;
+				}
+				if (offset > boundingValue) {
+					offset = boundingValue;
+				}
+			}
+			// Update left
+			state.offsetLeft = offset;
+		}
+
+		if (canDragY(this)) {
+			// Calculate updated position
+			offset = offsetTop + dragPoint.clientY - this.state.clientY;
+			// Bound movement to parent box
+			if (this.state.boundTop) {
+				boundingValue = state.offsetTop - node.offsetTop;
+				if (offset < boundingValue) {
+					offset = boundingValue;
+				}
+			}
+			if (this.state.boundBottom) {
+				boundingValue += offsetParent.clientHeight;
+				if (this.state.boundBox) {
+					boundingValue -= node.offsetHeight;
+				}
+				if (offset > boundingValue) {
+					offset = boundingValue;
+				}
+			}
+			// Update top
+			state.offsetTop = offset;
+		}
+
+		var constrain = this.props.constrain;
+		var grid = this.props.grid;
+
+		// Backwards-compatibility for snap to grid
+		if (!constrain && Array.isArray(grid)) {
+			var constrainOffset = function (offset, prev, snap) {
+				var delta = offset - prev;
+				if (Math.abs(delta) >= snap) {
+					return prev + parseInt(delta / snap, 10) * snap;
+				}
+				return prev;
+			};
+			constrain = function (pos) {
+				return {
+					left: constrainOffset(pos.left, pos.prevLeft, grid[0]),
+					top: constrainOffset(pos.top, pos.prevTop, grid[1])
+				};
+			};
+		}
+
+		// Constrain if function has been provided
+		var positions;
+		if (constrain) {
+			// Constrain positions
+			positions = constrain({
+				prevLeft: this.state.offsetLeft,
+				prevTop: this.state.offsetTop,
+				left: state.offsetLeft,
+				top: state.offsetTop
+			});
+			if (positions) {
+				// Update left
+				if ('left' in positions && !isNaN(positions.left)) {
+					state.offsetLeft = positions.left;
+				}
+				// Update top
+				if ('top' in positions && !isNaN(positions.top)) {
+					state.offsetTop = positions.top;
+				}
+			}
+		}
+
+		// Save new state
+		state.clientX = this.state.clientX + (state.offsetLeft - offsetLeft);
+		state.clientY = this.state.clientY + (state.offsetTop - offsetTop);
+		this.setState(state);
+
+		// Call event handler
+		this.props.onDrag(e, createUIEvent(this));
+	},
+
+	onTouchStart: function (e) {
+		e.preventDefault(); // prevent for scroll
+		return this.handleDragStart.apply(this, arguments);
+	},
+
+	render: function () {
+		var style = {
+			top: this.state.offsetTop,
+			left: this.state.offsetLeft
+		};
+
+		// Set zIndex if currently dragging and prop has been provided
+		if (this.state.dragging && !isNaN(this.props.zIndex)) {
+			style.zIndex = this.props.zIndex;
+		}
+
+		var props = {
+			style: style,
+			className: 'react-draggable',
+
+			onMouseDown: this.handleDragStart,
+			onTouchStart: this.onTouchStart,
+
+			onMouseUp: this.handleDragEnd,
+			onTouchEnd: this.handleDragEnd
+		};
+
+		// Reuse the child provided
+		// This makes it flexible to use whatever element is wanted (div, ul, etc)
+		if (this.props.useChild) {
+			return React.addons.cloneWithProps(React.Children.only(this.props.children), props);
+		}
+
+		return React.DOM.div(props, this.props.children);
+	},
+
+	_toPixels: function (value) {
+
+		// Support percentages
+		if (typeof value == 'string' && value.slice(-1) == '%') {
+			return parseInt((+value.replace('%', '') / 100) *
+				this.getDOMNode().offsetParent.clientWidth, 10) || 0;
+		}
+
+		// Invalid values become zero
+		var i = parseInt(value, 10);
+		if (isNaN(i) || !isFinite(i)) return 0;
+
+		return i;
+	}
+
+});
+
+},{"react/addons":65,"react/lib/emptyFunction":186}],25:[function(require,module,exports){
+module.exports = {
+  AppBar: require('./js/app-bar.jsx'),
+  AppCanvas: require('./js/app-canvas.jsx'),
+  Checkbox: require('./js/checkbox.jsx'),
+  Dialog: require('./js/dialog.jsx'),
+  DropDownIcon: require('./js/drop-down-icon.jsx'),
+  DropDownMenu: require('./js/drop-down-menu.jsx'),
+  EnhancedButton: require('./js/enhanced-button.jsx'),
+  FlatButton: require('./js/flat-button.jsx'),
+  FloatingActionButton: require('./js/floating-action-button.jsx'),
+  IconButton: require('./js/icon-button.jsx'),
+  Icon: require('./js/icon.jsx'),
+  Input: require('./js/input.jsx'),
+  LeftNav: require('./js/left-nav.jsx'),
+  MenuItem: require('./js/menu-item.jsx'),
+  Menu: require('./js/menu.jsx'),
+  Mixins: {
+    Classable: require('./js/mixins/classable.js'),
+    ClickAwayable: require('./js/mixins/click-awayable.js'),
+    WindowListenable: require('./js/mixins/window-listenable.js'),
+  },
+  Paper: require('./js/paper.jsx'),
+  RadioButton: require('./js/radio-button.jsx'),
+  RaisedButton: require('./js/raised-button.jsx'),
+  Ripple: require('./js/ripple.jsx'),
+  Slider: require('./js/slider.jsx'),
+  Toggle: require('./js/toggle.jsx'),
+  Toast: require('./js/toast.jsx'),
+  Toolbar: require('./js/toolbar.jsx'),
+  ToolbarGroup: require('./js/toolbar-group.jsx'),
+  Tooltip: require('./js/tooltip.jsx'),
+  Utils: {
+    CssEvent: require('./js/utils/css-event.js'),
+    Dom: require('./js/utils/dom.js'),
+    Events: require('./js/utils/events.js'),
+    KeyCode: require('./js/utils/key-code.js'),
+    KeyLine: require('./js/utils/key-line.js')
+  }
+};
+
+},{"./js/app-bar.jsx":26,"./js/app-canvas.jsx":27,"./js/checkbox.jsx":28,"./js/dialog.jsx":30,"./js/drop-down-icon.jsx":31,"./js/drop-down-menu.jsx":32,"./js/enhanced-button.jsx":33,"./js/flat-button.jsx":34,"./js/floating-action-button.jsx":35,"./js/icon-button.jsx":36,"./js/icon.jsx":37,"./js/input.jsx":38,"./js/left-nav.jsx":39,"./js/menu-item.jsx":40,"./js/menu.jsx":41,"./js/mixins/classable.js":42,"./js/mixins/click-awayable.js":43,"./js/mixins/window-listenable.js":44,"./js/paper.jsx":46,"./js/radio-button.jsx":47,"./js/raised-button.jsx":48,"./js/ripple.jsx":49,"./js/slider.jsx":50,"./js/toast.jsx":51,"./js/toggle.jsx":52,"./js/toolbar-group.jsx":53,"./js/toolbar.jsx":54,"./js/tooltip.jsx":55,"./js/utils/css-event.js":56,"./js/utils/dom.js":57,"./js/utils/events.js":58,"./js/utils/key-code.js":59,"./js/utils/key-line.js":60}],26:[function(require,module,exports){
+var React = require('react'),
+  Classable = require('./mixins/classable.js'),
+  IconButton = require('./icon-button.jsx'),
+  Paper = require('./paper.jsx');
+
+var AppBar = React.createClass({displayName: "AppBar",
+
+  mixins: [Classable],
+
+  propTypes: {
+    onMenuIconButtonTouchTap: React.PropTypes.func,
+    showMenuIconButton: React.PropTypes.bool,
+    title : React.PropTypes.string,
+    zDepth: React.PropTypes.number
+  },
+
+  getDefaultProps: function() {
+    return {
+      showMenuIconButton: true,
+      title: '',
+      zDepth: 1
+    }
+  },
+
+  render: function() {
+    var classes = this.getClasses('mui-app-bar'),
+      title, menuIconButton;
+
+    if (this.props.title) {
+      title = React.createElement("h1", {className: "mui-app-bar-title"}, this.props.title);
+    }
+
+    if (this.props.showMenuIconButton) {
+      menuIconButton = (
+        React.createElement(IconButton, {
+          className: "mui-app-bar-navigation-icon-button", 
+          icon: "navigation-menu", 
+          onTouchTap: this._onMenuIconButtonTouchTap}
+        )
+      );
+    }
+
+    return (
+      React.createElement(Paper, {rounded: false, className: classes, zDepth: this.props.zDepth}, 
+        menuIconButton, 
+        title, 
+        this.props.children
+      )
+    );
+  },
+
+  _onMenuIconButtonTouchTap: function(e) {
+    if (this.props.onMenuIconButtonTouchTap) this.props.onMenuIconButtonTouchTap(e);
+  }
+
+});
+
+module.exports = AppBar;
+},{"./icon-button.jsx":36,"./mixins/classable.js":42,"./paper.jsx":46,"react":226}],27:[function(require,module,exports){
+var React = require('react'),
+  Classable = require('./mixins/classable.js');
+
+var AppCanvas = React.createClass({displayName: "AppCanvas",
+
+  mixins: [Classable],
+
+  propTypes: {
+    predefinedLayout: React.PropTypes.number
+  },
+
+  render: function() {
+    var classes = this.getClasses({
+      'mui-app-canvas': true,
+      'mui-predefined-layout-1': this.props.predefinedLayout === 1
+    });
+
+    return (
+      React.createElement("div", {className: classes}, 
+        this.props.children
+      )
+    );
+  }
+
+});
+
+module.exports = AppCanvas;
+
+},{"./mixins/classable.js":42,"react":226}],28:[function(require,module,exports){
+var React = require('react'),
+    Classable = require('./mixins/classable.js');
+
+var Checkbox = React.createClass({displayName: "Checkbox",
+
+  propTypes: {
+    checked: React.PropTypes.bool,
+    name: React.PropTypes.string.isRequired,
+    onCheck: React.PropTypes.func,
+    value: React.PropTypes.string.isRequired,
+    onClick: React.PropTypes.func
+  },
+
+  mixins: [Classable],
+
+  getInitialState: function() {
+    return {
+      checked: this.props.checked || false
+    }
+  },
+
+  componentWillReceiveProps: function(nextProps) {
+    if (nextProps.hasOwnProperty('checked')) this.setState({checked: nextProps.checked});
+  },
+
+  check: function() {
+    this.setState({ checked: !this.state.checked });
+    this.refs.checkbox.getDOMNode().checked = !this.refs.checkbox.getDOMNode().checked;
+
+  },
+
+  render: function() {
+    var classes = this.getClasses('mui-checkbox', {
+      'mui-checked': this.state.checked === true
+    })
+
+    return (
+      React.createElement("div", {className: classes, onClick: this._onCheck}, 
+        React.createElement("input", {ref: "checkbox", type: "checkbox", name: this.props.name, value: this.props.value}), 
+        React.createElement("span", {className: "mui-checkbox-box"}), 
+        React.createElement("span", {className: "mui-checkbox-check"})
+      )
+    );
+  },
+
+  _onCheck: function(e) {
+    var checkedState = this.state.checked;
+
+    this.check();
+
+    if (this.props.onClick) this.props.onClick(e, !checkedState);
+  }
+
+});
+
+module.exports = Checkbox;
+
+},{"./mixins/classable.js":42,"react":226}],29:[function(require,module,exports){
+var React = require('react'),
+  WindowListenable = require('./mixins/window-listenable.js'),
+  KeyCode = require('./utils/key-code.js'),
+  Classable = require('./mixins/classable'),
+  Overlay = require('./overlay.jsx'),
+  Paper = require('./paper.jsx');
+
+var DialogWindow = React.createClass({displayName: "DialogWindow",
+
+  mixins: [Classable, WindowListenable],
+
+  propTypes: {
+    openImmediately: React.PropTypes.bool,
+    onDismiss: React.PropTypes.func,
+    onShow: React.PropTypes.func
+  },
+
+  windowListeners: {
+    'keyup': '_handleWindowKeyUp'
+  },
+
+  getInitialState: function() {
+    return {
+      open: this.props.openImmediately || false
+    };
+  },
+
+  componentDidMount: function() {
+    this._positionDialog();
+  },
+
+  componentDidUpdate: function (prevProps, prevState) {
+    this._positionDialog();
+  },
+
+  render: function() {
+    var classes = this.getClasses('mui-dialog-window', { 
+      'mui-is-shown': this.state.open
+    });
+
+    return (
+      React.createElement("div", {className: classes}, 
+        React.createElement(Paper, {ref: "dialogWindow", className: "mui-dialog-window-contents", zDepth: 4}, 
+          this.state.open ? this.props.children : ''
+        ), 
+        React.createElement(Overlay, {show: this.state.open, onTouchTap: this._handleOverlayTouchTap})
+      )
+    );
+  },
+
+  dismiss: function() {
+    this.setState({ open: false });
+    if (this.props.onDismiss) this.props.onDismiss();
+  },
+
+  show: function() {
+    this.setState({ open: true });
+    if (this.props.onShow) this.props.onShow();
+  },
+
+  _positionDialog: function() {
+    var container, dialogWindow, containerHeight, dialogWindowHeight;
+
+    if (this.state.open) {
+
+      container = this.getDOMNode(),
+      dialogWindow = this.refs.dialogWindow.getDOMNode(),
+      containerHeight = container.offsetHeight,
+
+      //Reset the height in case the window was resized.
+      dialogWindow.style.height = '';
+      dialogWindowHeight = dialogWindow.offsetHeight;
+
+      //Vertically center the dialog window, but make sure it doesn't
+      //transition to that position.
+      container.style.paddingTop = ((containerHeight - dialogWindowHeight) / 2) - 64 + 'px';
+
+      //This is needed to keep the height from changing when the dialog
+      //gets closed
+      dialogWindow.style.height = dialogWindowHeight + 'px';
+
+    }
+  },
+
+  _handleOverlayTouchTap: function() {
+    this.dismiss();
+  },
+
+  _handleWindowKeyUp: function(e) {
+    if (e.keyCode == KeyCode.ESC) {
+      this.dismiss();
+    }
+  }
+
+});
+
+module.exports = DialogWindow;
+},{"./mixins/classable":42,"./mixins/window-listenable.js":44,"./overlay.jsx":45,"./paper.jsx":46,"./utils/key-code.js":59,"react":226}],30:[function(require,module,exports){
+var React = require('react'),
+  Classable = require('./mixins/classable'),
+  DialogWindow = require('./dialog-window.jsx'),
+  FlatButton = require('./flat-button.jsx');
+
+var Dialog = React.createClass({displayName: "Dialog",
+
+  mixins: [Classable],
+
+  propTypes: {
+    title: React.PropTypes.string,
+    actions: React.PropTypes.array
+  },
+
+  getDefaultProps: function() {
+    return {
+      actions: []
+    };
+  },
+
+  render: function() {
+    var 
+      $__0=
+        
+        
+        
+        
+        this.props,className=$__0.className,title=$__0.title,actions=$__0.actions,other=(function(source, exclusion) {var rest = {};var hasOwn = Object.prototype.hasOwnProperty;if (source == null) {throw new TypeError();}for (var key in source) {if (hasOwn.call(source, key) && !hasOwn.call(exclusion, key)) {rest[key] = source[key];}}return rest;})($__0,{className:1,title:1,actions:1}),
+      classes = this.getClasses('mui-dialog'),
+      actions = this._getDialogActions();
+
+    return (
+      React.createElement(DialogWindow, React.__spread({},  other, {ref: "dialogWindow", className: classes}), 
+        React.createElement("h3", {className: "mui-dialog-title"}, this.props.title), 
+        React.createElement("div", {ref: "dialogContent", className: "mui-dialog-content"}, 
+          this.props.children
+        ), 
+        React.createElement("div", {className: "mui-dialog-actions"}, 
+          React.createElement("div", {className: "mui-dialog-actions-right"}, actions)
+        )
+      )
+    );
+  },
+
+  dismiss: function() {
+    this.refs.dialogWindow.dismiss();
+  },
+
+  show: function() {
+    this.refs.dialogWindow.show();
+  },
+
+  _getDialogActions: function() {
+    return this.props.actions.map(function(a, index) {
+
+      var onClickHandler = a.onClick ? a.onClick : this.dismiss;
+      return (
+        React.createElement(FlatButton, {
+          className: "mui-dialog-action", 
+          key: index, 
+          primary: true, 
+          onClick: onClickHandler, 
+          label: a.text})
+      );
+
+    }.bind(this));
+  }
+
+});
+
+module.exports = Dialog;
+},{"./dialog-window.jsx":29,"./flat-button.jsx":34,"./mixins/classable":42,"react":226}],31:[function(require,module,exports){
+var React = require('react'),
+  Classable = require('./mixins/classable.js'),
+  ClickAwayable = require('./mixins/click-awayable'),
+  KeyLine = require('./utils/key-line.js'),
+  Paper = require('./paper.jsx'),
+  Icon = require('./icon.jsx'),
+  Menu = require('./menu.jsx'),
+  MenuItem = require('./menu-item.jsx');
+
+var DropDownIcon = React.createClass({displayName: "DropDownIcon",
+
+  mixins: [Classable, ClickAwayable],
+
+  propTypes: {
+    onChange: React.PropTypes.func,
+    menuItems: React.PropTypes.array.isRequired
+  },
+
+  getInitialState: function() {
+    return {
+      open: false
+    }
+  },
+
+  componentClickAway: function() {
+    this.setState({ open: false });
+  },
+
+  render: function() {
+    var classes = this.getClasses('mui-drop-down-icon', {
+      'mui-open': this.state.open
+    });
+
+    return (
+      React.createElement("div", {className: classes}, 
+          React.createElement("div", {className: "mui-menu-control", onClick: this._onControlClick}, 
+              React.createElement(Icon, {icon: this.props.icon})
+          ), 
+          React.createElement(Menu, {ref: "menuItems", menuItems: this.props.menuItems, hideable: true, visible: this.state.open, onItemClick: this._onMenuItemClick})
+        )
+    );
+  },
+
+  _onControlClick: function(e) {
+    this.setState({ open: !this.state.open });
+  },
+
+  _onMenuItemClick: function(e, key, payload) {
+    if (this.props.onChange) this.props.onChange(e, key, payload);
+    this.setState({ open: false });
+  }
+
+});
+
+module.exports = DropDownIcon;
+
+},{"./icon.jsx":37,"./menu-item.jsx":40,"./menu.jsx":41,"./mixins/classable.js":42,"./mixins/click-awayable":43,"./paper.jsx":46,"./utils/key-line.js":60,"react":226}],32:[function(require,module,exports){
+var React = require('react'),
+  Classable = require('./mixins/classable.js'),
+  ClickAwayable = require('./mixins/click-awayable'),
+  KeyLine = require('./utils/key-line.js'),
+  Paper = require('./paper.jsx'),
+  Icon = require('./icon.jsx'),
+  Menu = require('./menu.jsx');
+
+var DropDownMenu = React.createClass({displayName: "DropDownMenu",
+
+  mixins: [Classable, ClickAwayable],
+
+  propTypes: {
+    autoWidth: React.PropTypes.bool,
+    onChange: React.PropTypes.func,
+    menuItems: React.PropTypes.array.isRequired
+  },
+
+  getDefaultProps: function() {
+    return {
+      autoWidth: true
+    };
+  },
+
+  getInitialState: function() {
+    return {
+      open: false,
+      selectedIndex: this.props.selectedIndex || 0
+    }
+  },
+
+  componentClickAway: function() {
+    this.setState({ open: false });
+  },
+
+  componentDidMount: function() {
+    if (this.props.autoWidth) this._setWidth();
+  },
+
+  componentWillReceiveProps: function(nextProps) {
+    if (nextProps.hasOwnProperty('selectedIndex')) {
+      this.setState({selectedIndex: nextProps.selectedIndex});
+    }
+  },
+
+  render: function() {
+    var classes = this.getClasses('mui-drop-down-menu', {
+      'mui-open': this.state.open
+    });
+
+    return (
+      React.createElement("div", {className: classes}, 
+        React.createElement("div", {className: "mui-menu-control", onClick: this._onControlClick}, 
+          React.createElement(Paper, {className: "mui-menu-control-bg", zDepth: 0}), 
+          React.createElement("div", {className: "mui-menu-label"}, 
+            this.props.menuItems[this.state.selectedIndex].text
+          ), 
+          React.createElement(Icon, {className: "mui-menu-drop-down-icon", icon: "navigation-arrow-drop-down"}), 
+          React.createElement("div", {className: "mui-menu-control-underline"})
+        ), 
+        React.createElement(Menu, {
+          ref: "menuItems", 
+          autoWidth: this.props.autoWidth, 
+          selectedIndex: this.state.selectedIndex, 
+          menuItems: this.props.menuItems, 
+          hideable: true, 
+          visible: this.state.open, 
+          onItemClick: this._onMenuItemClick})
+      )
+    );
+  },
+
+  _setWidth: function() {
+    var el = this.getDOMNode(),
+      menuItemsDom = this.refs.menuItems.getDOMNode();
+
+    el.style.width = menuItemsDom.offsetWidth + 'px';
+  },
+
+  _onControlClick: function(e) {
+    this.setState({ open: !this.state.open });
+  },
+
+  _onMenuItemClick: function(e, key, payload) {
+    if (this.props.onChange && this.state.selectedIndex !== key) this.props.onChange(e, key, payload);
+    this.setState({
+      selectedIndex: key,
+      open: false
+    });
+  }
+
+});
+
+module.exports = DropDownMenu;
+},{"./icon.jsx":37,"./menu.jsx":41,"./mixins/classable.js":42,"./mixins/click-awayable":43,"./paper.jsx":46,"./utils/key-line.js":60,"react":226}],33:[function(require,module,exports){
+var React = require('react');
+var KeyCode = require('./utils/key-code.js');
+var Classable = require('./mixins/classable.js');
+var WindowListenable = require('./mixins/window-listenable');
+
+var EnhancedButton = React.createClass({displayName: "EnhancedButton",
+
+  mixins: [Classable, WindowListenable],
+
+  propTypes: {
+    className: React.PropTypes.string,
+    disabled: React.PropTypes.bool,
+    linkButton: React.PropTypes.bool,
+    onBlur: React.PropTypes.func,
+    onFocus: React.PropTypes.func,
+    onTouchTap: React.PropTypes.func
+  },
+
+  windowListeners: {
+    'keyup': '_onWindowKeyUp'
+  },
+
+  getInitialState: function() {
+    return {
+      isKeyboardFocused: false 
+    };
+  },
+
+  render: function() {
+    var $__0=
+      
+      
+      
+      
+      
+         this.props,className=$__0.className,disabled=$__0.disabled,icon=$__0.icon,linkButton=$__0.linkButton,onTouchTap=$__0.onTouchTap,other=(function(source, exclusion) {var rest = {};var hasOwn = Object.prototype.hasOwnProperty;if (source == null) {throw new TypeError();}for (var key in source) {if (hasOwn.call(source, key) && !hasOwn.call(exclusion, key)) {rest[key] = source[key];}}return rest;})($__0,{className:1,disabled:1,icon:1,linkButton:1,onTouchTap:1});
+    var classes = this.getClasses('mui-enhanced-button', {
+      'mui-is-disabled': disabled,
+      'mui-is-keyboard-focused': this.state.isKeyboardFocused,
+      'mui-is-link-button': linkButton
+    });
+
+    return this.props.linkButton ? (
+      this.props.disabled ? (
+        React.createElement("span", React.__spread({},  other, 
+          {className: classes, 
+          disabled: disabled}), 
+          this.props.children
+        )
+      ) : (
+        React.createElement("a", React.__spread({},  other, 
+          {className: classes, 
+          disabled: disabled, 
+          onBlur: this._onBlur, 
+          onFocus: this._onFocus, 
+          onTouchTap: this._onTouchTap}), 
+          this.props.children
+        )
+      )
+    ) : (
+      React.createElement("button", React.__spread({},  other, 
+        {className: classes, 
+        disabled: disabled, 
+        onBlur: this._onBlur, 
+        onFocus: this._onFocus, 
+        onTouchTap: this._onTouchTap}), 
+        this.props.children
+      )
+    );
+  },
+
+  isKeyboardFocused: function() {
+    return this.state.isKeyboardFocused;
+  },
+
+  _onWindowKeyUp: function(e) {
+    if (e.keyCode == KeyCode.TAB) this._tabPressed = true;
+    if (e.keyCode == KeyCode.ENTER && this.state.isKeyboardFocused) {
+      this._onTouchTap(e);
+    }
+  },
+
+  _onBlur: function(e) {
+    this.setState({
+      isKeyboardFocused: false
+    });
+
+    if (this.props.onBlur) this.props.onBlur(e);
+  },
+
+  _onFocus: function(e) {
+    //setTimeout is needed becuase the focus event fires first
+    //Wait so that we can capture if this was a keyboard focus
+    //or touch focus
+    setTimeout(function() {
+      if (this._tabPressed) {
+        this.setState({
+          isKeyboardFocused: true
+        });
+      }
+    }.bind(this), 150);
+    
+    if (this.props.onFocus) this.props.onFocus(e);
+  },
+
+  _onTouchTap: function(e) {
+    this._tabPressed = false;
+    this.setState({
+      isKeyboardFocused: false
+    });
+    if (this.props.onTouchTap) this.props.onTouchTap(e);
+  }
+
+});
+
+module.exports = EnhancedButton;
+},{"./mixins/classable.js":42,"./mixins/window-listenable":44,"./utils/key-code.js":59,"react":226}],34:[function(require,module,exports){
+var React = require('react'),
+  Classable = require('./mixins/classable.js'),
+  EnhancedButton = require('./enhanced-button.jsx'),
+  Ripple = require('./ripple.jsx');
+
+var FlatButton = React.createClass({displayName: "FlatButton",
+
+  mixins: [Classable],
+
+  propTypes: {
+    className: React.PropTypes.string,
+    label: React.PropTypes.string.isRequired,
+    onTouchTap: React.PropTypes.func,
+    primary: React.PropTypes.bool
+  },
+
+  render: function() {
+    var 
+      $__0=
+        
+        
+        
+        this.props,className=$__0.className,onTouchTap=$__0.onTouchTap,other=(function(source, exclusion) {var rest = {};var hasOwn = Object.prototype.hasOwnProperty;if (source == null) {throw new TypeError();}for (var key in source) {if (hasOwn.call(source, key) && !hasOwn.call(exclusion, key)) {rest[key] = source[key];}}return rest;})($__0,{className:1,onTouchTap:1}),
+      classes = this.getClasses('mui-flat-button', {
+        'mui-is-primary': this.props.primary
+      });
+
+    return (
+      React.createElement(EnhancedButton, React.__spread({},  other, 
+        {className: classes, 
+        onTouchTap: this._onTouchTap}), 
+
+        React.createElement(Ripple, {ref: "ripple", className: "mui-flat-button-ripple"}), 
+        React.createElement(Ripple, {className: "mui-flat-button-focus-ripple"}), 
+        this.props.label
+
+      )
+    );
+  },
+
+  _onTouchTap: function(e) {
+    if (!this.props.disabled) this.refs.ripple.animate(e);
+    if (this.props.onTouchTap) this.props.onTouchTap(e);
+  }
+
+});
+
+module.exports = FlatButton;
+},{"./enhanced-button.jsx":33,"./mixins/classable.js":42,"./ripple.jsx":49,"react":226}],35:[function(require,module,exports){
+var React = require('react'),
+  CssEvent = require('./utils/css-event.js'),
+  Classable = require('./mixins/classable.js'),
+  EnhancedButton = require('./enhanced-button.jsx'),
+  Icon = require('./icon.jsx'),
+  Paper = require('./paper.jsx'),
+  Ripple = require('./ripple.jsx');
+
+var RaisedButton = React.createClass({displayName: "RaisedButton",
+
+  mixins: [Classable],
+
+  propTypes: {
+    className: React.PropTypes.string,
+    icon: React.PropTypes.string.isRequired,
+    mini: React.PropTypes.bool,
+    onTouchTap: React.PropTypes.func
+  },
+
+  getInitialState: function() {
+    var zDepth = this.props.disabled ? 0 : 2;
+    return {
+      zDepth: zDepth,
+      initialZDepth: zDepth
+    };
+  },
+
+  render: function() {
+    var $__0=
+      
+      
+      
+      
+         this.props,className=$__0.className,icon=$__0.icon,mini=$__0.mini,onTouchTap=$__0.onTouchTap,other=(function(source, exclusion) {var rest = {};var hasOwn = Object.prototype.hasOwnProperty;if (source == null) {throw new TypeError();}for (var key in source) {if (hasOwn.call(source, key) && !hasOwn.call(exclusion, key)) {rest[key] = source[key];}}return rest;})($__0,{className:1,icon:1,mini:1,onTouchTap:1}),
+      classes = this.getClasses('mui-floating-action-button', {
+        'mui-is-mini': this.props.mini
+      });
+
+    return (
+      React.createElement(Paper, {className: classes, innerClassName: "mui-floating-action-button-inner", zDepth: this.state.zDepth, circle: true}, 
+        React.createElement(EnhancedButton, React.__spread({},  
+          other, 
+          {className: "mui-floating-action-button-container", 
+          onTouchTap: this._onTouchTap}), 
+
+          
+          React.createElement(Ripple, {className: "mui-floating-action-button-focus-ripple"}), 
+          React.createElement(Icon, {className: "mui-floating-action-button-icon", icon: this.props.icon})
+
+        ), 
+        React.createElement(Ripple, {ref: "ripple", className: "mui-floating-action-button-ripple"})
+      )
+    );
+  },
+
+  _onTouchTap: function(e) {
+    if (!this.props.disabled) this._animateButtonClick(e);
+    if (this.props.onTouchTap) this.props.onTouchTap(e);
+  },
+
+  _animateButtonClick: function(e) {
+    var el = this.getDOMNode();
+
+    //animate the ripple
+    this.refs.ripple.animateFromCenter();
+
+    //animate the zdepth change
+    this.setState({ zDepth: this.state.initialZDepth + 1 });
+    setTimeout(function() {
+			if (this.isMounted()) {
+				this.setState({zDepth: this.state.initialZDepth});
+			}
+    }.bind(this), 450);
+  }
+
+});
+
+module.exports = RaisedButton;
+
+},{"./enhanced-button.jsx":33,"./icon.jsx":37,"./mixins/classable.js":42,"./paper.jsx":46,"./ripple.jsx":49,"./utils/css-event.js":56,"react":226}],36:[function(require,module,exports){
+var React = require('react');
+var Classable = require('./mixins/classable.js');
+var EnhancedButton = require('./enhanced-button.jsx');
+var Icon = require('./icon.jsx');
+var Ripple = require('./ripple.jsx');
+var Tooltip = require('./tooltip.jsx');
+
+var IconButton = React.createClass({displayName: "IconButton",
+
+  mixins: [Classable],
+
+  propTypes: {
+    className: React.PropTypes.string,
+    disabled: React.PropTypes.bool,
+    icon: React.PropTypes.string.isRequired,
+    onBlur: React.PropTypes.func,
+    onFocus: React.PropTypes.func,
+    onTouchTap: React.PropTypes.func,
+    tooltip: React.PropTypes.string,
+    touch: React.PropTypes.bool
+  },
+
+  getInitialState: function() {
+    return {
+      tooltipShown: false 
+    };
+  },
+
+  componentDidMount: function() {
+    if (this.props.tooltip) {
+      this._positionTooltip();
+    }
+  },
+
+  render: function() {
+    var $__0=
+      
+      
+      
+      
+      
+      
+      
+         this.props,className=$__0.className,icon=$__0.icon,onBlur=$__0.onBlur,onFocus=$__0.onFocus,onTouchTap=$__0.onTouchTap,tooltip=$__0.tooltip,touch=$__0.touch,other=(function(source, exclusion) {var rest = {};var hasOwn = Object.prototype.hasOwnProperty;if (source == null) {throw new TypeError();}for (var key in source) {if (hasOwn.call(source, key) && !hasOwn.call(exclusion, key)) {rest[key] = source[key];}}return rest;})($__0,{className:1,icon:1,onBlur:1,onFocus:1,onTouchTap:1,tooltip:1,touch:1});
+    var classes = this.getClasses('mui-icon-button');
+    var tooltip;
+
+    if (this.props.tooltip) {
+      tooltip = (
+        React.createElement(Tooltip, {
+          ref: "tooltip", 
+          className: "mui-icon-button-tooltip", 
+          label: this.props.tooltip, 
+          show: this.state.tooltipShown, 
+          touch: this.props.touch})
+      );
+    }
+
+    return (
+      React.createElement(EnhancedButton, React.__spread({},  other, 
+        {ref: "button", 
+        className: classes, 
+        onBlur: this._handleBlur, 
+        onFocus: this._handleFocus, 
+        onTouchTap: this._handleTouchTap}), 
+
+        tooltip, 
+        React.createElement("div", {
+          className: "mui-icon-button-target", 
+          onMouseOut: this._handleMouseOut, 
+          onMouseOver: this._handleMouseOver}, 
+
+          React.createElement(Ripple, {ref: "ripple", className: "mui-icon-button-ripple"}), 
+          React.createElement(Ripple, {className: "mui-icon-button-focus-ripple"}), 
+          React.createElement(Icon, {icon: icon})
+
+        )
+
+      )
+    );
+  },
+
+  _positionTooltip: function() {
+    var tooltip = this.refs.tooltip.getDOMNode();
+    var tooltipWidth = tooltip.offsetWidth;
+    var buttonWidth = 48;
+
+    tooltip.style.left = (tooltipWidth - buttonWidth) / 2 * -1 + 'px';
+  },
+
+  _showTooltip: function() {
+    if (!this.props.disabled) this.setState({ tooltipShown: true });
+  },
+
+  _hideTooltip: function() {
+    this.setState({ tooltipShown: false });
+  },
+
+  _handleBlur: function(e) {
+    this._hideTooltip();
+    if (this.props.onBlur) this.props.onBlur(e);
+  },
+
+  _handleFocus: function(e) {
+    this._showTooltip();
+    if (this.props.onFocus) this.props.onFocus(e);
+  },
+
+  _handleMouseOut: function(e) {
+    if (!this.refs.button.isKeyboardFocused()) this._hideTooltip();
+    if (this.props.onMouseOut) this.props.onMouseOut(e);
+  },
+
+  _handleMouseOver: function(e) {
+    this._showTooltip();
+    if (this.props.onMouseOver) this.props.onMouseOver(e);
+  },
+
+  _handleTouchTap: function(e) {
+    if (!this.props.disabled) this.refs.ripple.animateFromCenter();
+    if (this.props.onTouchTap) this.props.onTouchTap(e);
+  }
+
+});
+
+module.exports = IconButton;
+},{"./enhanced-button.jsx":33,"./icon.jsx":37,"./mixins/classable.js":42,"./ripple.jsx":49,"./tooltip.jsx":55,"react":226}],37:[function(require,module,exports){
+var React = require('react'),
+  Classable = require('./mixins/classable.js');
+
+var Icon = React.createClass({displayName: "Icon",
+
+  mixins: [Classable],
+
+  propTypes: {
+    icon: React.PropTypes.string
+  },
+
+  render: function() {
+    var $__0=      this.props,className=$__0.className,icon=$__0.icon,other=(function(source, exclusion) {var rest = {};var hasOwn = Object.prototype.hasOwnProperty;if (source == null) {throw new TypeError();}for (var key in source) {if (hasOwn.call(source, key) && !hasOwn.call(exclusion, key)) {rest[key] = source[key];}}return rest;})($__0,{className:1,icon:1}),
+      isMuiCustomIcon = icon.indexOf('mui-icon') > -1,
+      mdfiClassName = 'mdfi_' + icon.replace(/-/g, '_'),
+      iconClassName = isMuiCustomIcon ? icon : mdfiClassName,
+      classes = this.getClasses('mui-icon ' + iconClassName);
+
+    return (
+      React.createElement("span", React.__spread({},  other, {className: classes}))
+    );
+  }
+
+});
+
+module.exports = Icon;
+},{"./mixins/classable.js":42,"react":226}],38:[function(require,module,exports){
+/** @jsx React.DOM */
+
+var React = require('react');
+var Classable = require('./mixins/classable.js');
+
+var Input = React.createClass({displayName: "Input",
+
+  propTypes: {
+    multiline: React.PropTypes.bool,
+    required: React.PropTypes.bool,
+    inlinePlaceholder: React.PropTypes.bool,
+    rows: React.PropTypes.number,
+    min: React.PropTypes.number,
+    max: React.PropTypes.number,
+    step: React.PropTypes.number,
+    inputStyle: React.PropTypes.string,
+    error: React.PropTypes.string,
+    description: React.PropTypes.string,
+    placeholder: React.PropTypes.string,
+    type: React.PropTypes.string,
+    name: React.PropTypes.string.isRequired,
+    onChange: React.PropTypes.func
+  },
+
+  mixins: [Classable],
+
+  getInitialState: function() {
+    return {
+      value: this.props.defaultValue,
+      rows: this.props.rows
+    };
+  },
+
+  getDefaultProps: function() {
+    return {
+      multiline: false,
+      required: true,
+      type: "text"
+    };
+  },
+
+  setError: function(error) {
+    this.setProps({ error: error });
+  },
+
+  removeError: function() {
+    this.setProps({error: undefined});
+  },
+
+  render: function() {
+    var classes = this.getClasses('mui-input', {
+      'mui-floating': this.props.inputStyle === 'floating',
+      'mui-text': this.props.type === 'text',
+      'mui-error': this.props.error !== undefined && this.props.error !== null
+    }),
+    placeholder = this.props.inlinePlaceholder ? this.props.placeholder : "",
+    inputElement = this.props.multiline ?
+      this.props.valueLink ?
+        React.createElement("textarea", React.__spread({},  this.props, {className: "mui-input-textarea", placeholder: placeholder, 
+          rows: this.state.rows})) :
+        React.createElement("textarea", React.__spread({},  this.props, {value: this.state.value, className: "mui-input-textarea", 
+          placeholder: placeholder, rows: this.state.rows, onChange: this._onTextAreaChange})) :
+        this.props.valueLink ?
+          React.createElement("input", React.__spread({},  this.props, {ref: "input", placeholder: placeholder})) :
+          React.createElement("input", React.__spread({},  this.props, {ref: "input", value: this.state.value, placeholder: placeholder, 
+            onChange: this._onInputChange}))
+    placeholderSpan = this.props.inlinePlaceholder ? null : React.createElement("span", {className: "mui-input-placeholder", 
+      onClick: this._onPlaceholderClick}, this.props.placeholder);
+
+    return (
+      React.createElement("div", {ref: this.props.ref, className: classes}, 
+        inputElement, 
+        placeholderSpan, 
+        React.createElement("span", {className: "mui-input-highlight"}), 
+        React.createElement("span", {className: "mui-input-bar"}), 
+        React.createElement("span", {className: "mui-input-description"}, this.props.description), 
+        React.createElement("span", {className: "mui-input-error"}, this.props.error)
+      )
+    );
+  },
+
+  getValue: function() {
+    return this.state.value;
+  },
+
+  setValue: function(txt) {
+    this.setState({value: txt});
+  },
+
+  clearValue: function() {
+    this.setValue("");
+  },
+  
+  focus: function () {
+    if(this.isMounted()) this.refs.input.getDOMNode().focus();
+  },
+
+  _onInputChange: function(e) {
+    var value = e.target.value;
+    this.setState({value: value});
+    if (this.props.onChange) this.props.onChange(e, value);
+  },
+
+  _onPlaceholderClick: function(e) {
+    this.focus();
+  },
+
+  _onTextAreaChange: function(e) {
+    this._onInputChange(e);
+    this._onLineBreak(e);
+  },
+
+  _onLineBreak: function(e) {
+    var input = (e.target.value.slice(-1));
+
+    if(input.match(/\n/gm)) {
+      if(this.state.rows != 20) {
+        this.setState({ rows: ((this.state.rows) + 1)});
+      }
+    }
+  }
+
+});
+
+module.exports = Input;
+
+},{"./mixins/classable.js":42,"react":226}],39:[function(require,module,exports){
+var React = require('react'),
+  KeyCode = require('./utils/key-code.js'),
+  Classable = require('./mixins/classable.js'),
+  WindowListenable = require('./mixins/window-listenable.js'),
+  Overlay = require('./overlay.jsx'),
+  Paper = require('./paper.jsx'),
+  Menu = require('./menu.jsx');
+
+var LeftNav = React.createClass({displayName: "LeftNav",
+
+  mixins: [Classable, WindowListenable],
+
+  propTypes: {
+    docked: React.PropTypes.bool,
+    header: React.PropTypes.element,
+    onChange: React.PropTypes.func,
+    menuItems: React.PropTypes.array.isRequired,
+    selectedIndex: React.PropTypes.number
+  },
+
+  windowListeners: {
+    'keyup': '_onWindowKeyUp'
+  },
+
+  getDefaultProps: function() {
+    return {
+      docked: true
+    };
+  },
+
+  getInitialState: function() {
+    return {
+      open: this.props.docked
+    };
+  },
+
+  toggle: function() {
+    this.setState({ open: !this.state.open });
+    return this;
+  },
+
+  close: function() {
+    this.setState({ open: false });
+    return this;
+  },
+
+  open: function() {
+    this.setState({ open: true });
+    return this;
+  },
+
+  render: function() {
+    var classes = this.getClasses('mui-left-nav', {
+        'mui-closed': !this.state.open
+      }),
+      selectedIndex = this.props.selectedIndex,
+      overlay;
+
+    if (!this.props.docked) overlay = React.createElement(Overlay, {show: this.state.open, onTouchTap: this._onOverlayTouchTap});
+
+    return (
+      React.createElement("div", {className: classes}, 
+
+        overlay, 
+        React.createElement(Paper, {
+          ref: "clickAwayableElement", 
+          className: "mui-left-nav-menu", 
+          zDepth: 2, 
+          rounded: false}, 
+          
+          this.props.header, 
+          React.createElement(Menu, {
+            ref: "menuItems", 
+            zDepth: 0, 
+            menuItems: this.props.menuItems, 
+            selectedIndex: selectedIndex, 
+            onItemClick: this._onMenuItemClick})
+
+        )
+      )
+    );
+  },
+
+  _onMenuItemClick: function(e, key, payload) {
+    if (!this.props.docked) this.close();
+    if (this.props.onChange && this.props.selectedIndex !== key) {
+      this.props.onChange(e, key, payload);
+    }
+  },
+
+  _onOverlayTouchTap: function() {
+    this.close();
+  },
+
+  _onWindowKeyUp: function(e) {
+    if (e.keyCode == KeyCode.ESC &&
+        !this.props.docked &&
+        this.state.open) {
+      this.close();
+    }
+  }
+
+});
+
+module.exports = LeftNav;
+},{"./menu.jsx":41,"./mixins/classable.js":42,"./mixins/window-listenable.js":44,"./overlay.jsx":45,"./paper.jsx":46,"./utils/key-code.js":59,"react":226}],40:[function(require,module,exports){
+var React = require('react'),
+  Classable = require('./mixins/classable.js'),
+  Icon = require('./icon.jsx'),
+  Toggle = require('./toggle.jsx'),
+  Ripple = require('./ripple.jsx'),
+
+  Types = {
+    LINK: 'LINK',
+    SUBHEADER: 'SUBHEADER',
+    NESTED: 'NESTED'
+  };
+
+var MenuItem = React.createClass({displayName: "MenuItem",
+
+  mixins: [Classable],
+
+  propTypes: {
+    index: React.PropTypes.number.isRequired,
+    icon: React.PropTypes.string,
+    iconRight: React.PropTypes.string,
+    attribute: React.PropTypes.string,
+    number: React.PropTypes.string,
+    data: React.PropTypes.string,
+    toggle: React.PropTypes.bool,
+    onClick: React.PropTypes.func,
+    onToggle: React.PropTypes.func,
+    selected: React.PropTypes.bool
+  },
+
+  statics: {
+    Types: Types
+  },
+
+  getDefaultProps: function() {
+    return {
+      toggle: false
+    };
+  },
+
+  render: function() {
+    var classes = this.getClasses('mui-menu-item', {
+        'mui-selected': this.props.selected
+      }),
+      icon,
+      data,
+      iconRight,
+      attribute,
+      number,
+      toggle;
+
+    if (this.props.icon) icon = React.createElement(Icon, {className: "mui-menu-item-icon", icon: this.props.icon});
+    if (this.props.data) data = React.createElement("span", {className: "mui-menu-item-data"}, this.props.data);
+    if (this.props.iconRight) iconRight = React.createElement(Icon, {className: "mui-menu-item-icon-right", icon: this.props.iconRight});
+    if (this.props.number !== undefined) number = React.createElement("span", {className: "mui-menu-item-number"}, this.props.number);
+    if (this.props.attribute !== undefined) attribute = React.createElement("span", {className: "mui-menu-item-attribute"}, this.props.attribute);
+    if (this.props.toggle) toggle = React.createElement(Toggle, {onToggle: this._onToggleClick});
+
+    return (
+      React.createElement("div", {key: this.props.index, className: classes, onMouseDown: this._onClick}, 
+        React.createElement(Ripple, {ref: "ripple"}), 
+        icon, 
+        this.props.children, 
+        data, 
+        attribute, 
+        number, 
+        toggle, 
+        iconRight
+      )
+    );
+  },
+
+  _onClick: function(e) {
+    var _this = this;
+
+    //animate the ripple
+    // this.refs.ripple.animate(e, function() {
+      if (_this.props.onClick) _this.props.onClick(e, _this.props.index);
+    // });
+  },
+
+  _onToggleClick: function(e, toggled) {
+    if (this.props.onToggle) this.props.onToggle(e, this.props.index, toggled);
+  }
+
+});
+
+module.exports = MenuItem;
+
+},{"./icon.jsx":37,"./mixins/classable.js":42,"./ripple.jsx":49,"./toggle.jsx":52,"react":226}],41:[function(require,module,exports){
+var React = require('react'),
+  CssEvent = require('./utils/css-event.js'),
+  Dom = require('./utils/dom.js'),
+  KeyLine = require('./utils/key-line.js'),
+  Classable = require('./mixins/classable.js'),
+  ClickAwayable = require('./mixins/click-awayable'),
+  Paper = require('./paper.jsx'),
+  MenuItem = require('./menu-item.jsx');
+
+/***********************
+ * Nested Menu Component
+ ***********************/
+var NestedMenuItem = React.createClass({displayName: "NestedMenuItem",
+
+  mixins: [Classable, ClickAwayable],
+
+  propTypes: {
+    index: React.PropTypes.number.isRequired,
+    text: React.PropTypes.string,
+    menuItems: React.PropTypes.array.isRequired,
+    zDepth: React.PropTypes.number,
+    onItemClick: React.PropTypes.func
+  },
+
+  getInitialState: function() {
+    return { open: false }
+  },
+
+  componentClickAway: function() {
+    this.setState({ open: false });
+  },
+
+  componentDidMount: function() {
+    this._positionNestedMenu();
+  },
+
+  componentDidUpdate: function(prevProps, prevState) {
+    this._positionNestedMenu();
+  },
+
+  render: function() {
+    var classes = this.getClasses('mui-nested-menu-item', {
+      'mui-open': this.state.open
+    });
+
+    return (
+      React.createElement("div", {className: classes}, 
+        React.createElement(MenuItem, {index: this.props.index, iconRight: "mui-icon-arrow-drop-right", onClick: this._onParentItemClick}, 
+          this.props.text
+        ), 
+        React.createElement(Menu, {
+          ref: "nestedMenu", 
+          menuItems: this.props.menuItems, 
+          onItemClick: this._onMenuItemClick, 
+          hideable: true, 
+          visible: this.state.open, 
+          zDepth: this.props.zDepth + 1})
+      )
+    );
+  },
+
+  _positionNestedMenu: function() {
+    var el = this.getDOMNode(),
+      nestedMenu = this.refs.nestedMenu.getDOMNode();
+
+    nestedMenu.style.left = el.offsetWidth + 'px';
+  },
+
+  _onParentItemClick: function() {
+    this.setState({ open: !this.state.open });
+  },
+
+  _onMenuItemClick: function(e, index, menuItem) {
+    this.setState({ open: false });
+    if (this.props.onItemClick) this.props.onItemClick(e, index, menuItem);
+  }
+
+});
+
+/****************
+ * Menu Component
+ ****************/
+var Menu = React.createClass({displayName: "Menu",
+
+  mixins: [Classable],
+
+  propTypes: {
+    autoWidth: React.PropTypes.bool,
+    onItemClick: React.PropTypes.func,
+    onToggleClick: React.PropTypes.func,
+    menuItems: React.PropTypes.array.isRequired,
+    selectedIndex: React.PropTypes.number,
+    hideable: React.PropTypes.bool,
+    visible: React.PropTypes.bool,
+    zDepth: React.PropTypes.number
+  },
+
+  getInitialState: function() {
+    return { nestedMenuShown: false }
+  },
+
+  getDefaultProps: function() {
+    return {
+      autoWidth: true,
+      hideable: false,
+      visible: true,
+      zDepth: 1
+    };
+  },
+
+  componentDidMount: function() {
+    var el = this.getDOMNode();
+
+    //Set the menu with
+    this._setKeyWidth(el);
+
+    //Save the initial menu height for later
+    this._initialMenuHeight = el.offsetHeight + KeyLine.Desktop.GUTTER_LESS;
+
+    //Show or Hide the menu according to visibility
+    this._renderVisibility();
+  },
+
+  componentDidUpdate: function(prevProps, prevState) {
+    if (this.props.visible !== prevProps.visible) this._renderVisibility();
+  },
+
+  render: function() {
+    var classes = this.getClasses('mui-menu', {
+      'mui-menu-hideable': this.props.hideable,
+      'mui-visible': this.props.visible
+    });
+
+    return (
+      React.createElement(Paper, {ref: "paperContainer", zDepth: this.props.zDepth, className: classes}, 
+        this._getChildren()
+      )
+    );
+  },
+
+  _getChildren: function() {
+    var children = [],
+      menuItem,
+      itemComponent,
+      isSelected;
+
+    //This array is used to keep track of all nested menu refs
+    this._nestedChildren = [];
+
+    for (var i=0; i < this.props.menuItems.length; i++) {
+      menuItem = this.props.menuItems[i];
+      isSelected = i === this.props.selectedIndex;
+
+      switch (menuItem.type) {
+
+        case MenuItem.Types.LINK:
+          itemComponent = (
+            React.createElement("a", {key: i, index: i, className: "mui-menu-item", href: menuItem.payload}, menuItem.text)
+          );
+        break;
+
+        case MenuItem.Types.SUBHEADER:
+          itemComponent = (
+            React.createElement("div", {key: i, index: i, className: "mui-subheader"}, menuItem.text)
+          );
+          break;
+
+        case MenuItem.Types.NESTED:
+          itemComponent = (
+            React.createElement(NestedMenuItem, {
+              ref: i, 
+              key: i, 
+              index: i, 
+              text: menuItem.text, 
+              menuItems: menuItem.items, 
+              zDepth: this.props.zDepth, 
+              onItemClick: this._onNestedItemClick})
+          );
+          this._nestedChildren.push(i);
+          break;
+
+        default:
+          itemComponent = (
+            React.createElement(MenuItem, {
+              selected: isSelected, 
+              key: i, 
+              index: i, 
+              icon: menuItem.icon, 
+              data: menuItem.data, 
+              attribute: menuItem.attribute, 
+              number: menuItem.number, 
+              toggle: menuItem.toggle, 
+              onClick: this._onItemClick, 
+              onToggle: this._onItemToggle}, 
+              menuItem.text
+            )
+          );
+      }
+      children.push(itemComponent);
+    }
+
+    return children;
+  },
+
+  _setKeyWidth: function(el) {
+    var menuWidth = this.props.autoWidth ?
+      KeyLine.getIncrementalDim(el.offsetWidth) + 'px' :
+      '100%';
+
+    //Update the menu width
+    Dom.withoutTransition(el, function() {
+      el.style.width = menuWidth;
+    });
+  },
+
+  _renderVisibility: function() {
+    var el;
+
+    if (this.props.hideable) {
+      el = this.getDOMNode();
+      var innerContainer = this.refs.paperContainer.getInnerContainer().getDOMNode();
+      
+      if (this.props.visible) {
+
+        //Open the menu
+        el.style.height = this._initialMenuHeight + 'px';
+
+        //Set the overflow to visible after the animation is done so
+        //that other nested menus can be shown
+        CssEvent.onTransitionEnd(el, function() {
+          //Make sure the menu is open before setting the overflow.
+          //This is to accout for fast clicks
+          if (this.props.visible) innerContainer.style.overflow = 'visible';
+        }.bind(this));
+
+      } else {
+
+        //Close the menu
+        el.style.height = '0px';
+
+        //Set the overflow to hidden so that animation works properly
+        innerContainer.style.overflow = 'hidden';
+      }
+    }
+  },
+
+  _onNestedItemClick: function(e, index, menuItem) {
+    if (this.props.onItemClick) this.props.onItemClick(e, index, menuItem);
+  },
+
+  _onItemClick: function(e, index) {
+    if (this.props.onItemClick) this.props.onItemClick(e, index, this.props.menuItems[index]);
+  },
+
+  _onItemToggle: function(e, index, toggled) {
+    if (this.props.onItemToggle) this.props.onItemToggle(e, index, this.props.menuItems[index], toggled);
+  }
+
+});
+
+module.exports = Menu;
+},{"./menu-item.jsx":40,"./mixins/classable.js":42,"./mixins/click-awayable":43,"./paper.jsx":46,"./utils/css-event.js":56,"./utils/dom.js":57,"./utils/key-line.js":60,"react":226}],42:[function(require,module,exports){
+var React = require('react/addons'),
+  classSet = React.addons.classSet;
+
+module.exports = {
+
+  propTypes: {
+    className: React.PropTypes.string
+  },
+
+  getClasses: function(initialClasses, additionalClassObj) {
+    var classString = '';
+
+    //Initialize the classString with the classNames that were passed in
+    if (this.props.className) classString += ' ' + this.props.className;
+
+    //Add in initial classes
+    if (typeof initialClasses === 'object') {
+      classString += ' ' + classSet(initialClasses);
+    } else {
+      classString += ' ' + initialClasses;
+    }
+
+    //Add in additional classes
+    if (additionalClassObj) classString += ' ' + classSet(additionalClassObj);
+
+    //Convert the class string into an object and run it through the class set
+    return classSet(this.getClassSet(classString));
+  },
+
+  getClassSet: function(classString) {
+    var classObj = {};
+
+    if (classString) {
+      classString.split(' ').forEach(function(className) {
+        if (className) classObj[className] = true;
+      });
+    }
+
+    return classObj;
+  }
+
+}
+
+},{"react/addons":65}],43:[function(require,module,exports){
+var Events = require('../utils/events.js'),
+  Dom = require('../utils/dom.js');
+
+module.exports = {
+
+  //When the component mounts, listen to click events and check if we need to
+  //Call the componentClickAway function.
+  componentDidMount: function() {
+    Events.on(document, 'click', this._checkClickAway);
+  },
+
+  componentWillUnmount: function() {
+    Events.off(document, 'click', this._checkClickAway);
+  },
+
+  _checkClickAway: function(e) {
+    var el = this.getDOMNode();
+
+    // Check if the target is inside the current component
+    if (this.isMounted() && 
+      e.target != el &&
+      !Dom.isDescendant(el, e.target)) {
+      if (this.componentClickAway) this.componentClickAway();
+    }
+  }
+
+}
+},{"../utils/dom.js":57,"../utils/events.js":58}],44:[function(require,module,exports){
+var Events = require('../utils/events.js');
+
+module.exports = {
+
+  componentDidMount: function() {
+    var listeners = this.windowListeners;
+
+    for (var eventName in listeners) {
+       var callbackName = listeners[eventName];
+       Events.on(window, eventName, this[callbackName]);
+    }
+  },
+
+  componentWillUnmount: function() {
+    var listeners = this.windowListeners;
+
+    for (var eventName in listeners) {
+       var callbackName = listeners[eventName];
+       Events.off(window, eventName, this[callbackName]);
+    }
+  }
+  
+}
+},{"../utils/events.js":58}],45:[function(require,module,exports){
+var React = require('react'),
+  Classable = require('./mixins/classable.js');
+
+var Overlay = React.createClass({displayName: "Overlay",
+
+  mixins: [Classable],
+
+  propTypes: {
+    show: React.PropTypes.bool
+  },
+
+  render: function() {
+    var 
+      $__0=
+        
+        
+        this.props,className=$__0.className,other=(function(source, exclusion) {var rest = {};var hasOwn = Object.prototype.hasOwnProperty;if (source == null) {throw new TypeError();}for (var key in source) {if (hasOwn.call(source, key) && !hasOwn.call(exclusion, key)) {rest[key] = source[key];}}return rest;})($__0,{className:1}),
+      classes = this.getClasses('mui-overlay', {
+        'mui-is-shown': this.props.show
+      });
+
+    return (
+      React.createElement("div", React.__spread({},  other, {className: classes}))
+    );
+  }
+
+});
+
+module.exports = Overlay;
+},{"./mixins/classable.js":42,"react":226}],46:[function(require,module,exports){
+var React = require('react'),
+  Classable = require('./mixins/classable.js');
+
+var Paper = React.createClass({displayName: "Paper",
+
+  mixins: [Classable],
+
+  propTypes: {
+    circle: React.PropTypes.bool,
+    innerClassName: React.PropTypes.string,
+    rounded: React.PropTypes.bool,
+    zDepth: React.PropTypes.oneOf([0,1,2,3,4,5])
+  },
+
+  getDefaultProps: function() {
+    return {
+      innerClassName: '',
+      rounded: true,
+      zDepth: 1
+    };
+  },
+
+  render: function() {
+    var $__0=
+      
+      
+      
+      
+      
+         this.props,className=$__0.className,circle=$__0.circle,innerClassName=$__0.innerClassName,rounded=$__0.rounded,zDepth=$__0.zDepth,other=(function(source, exclusion) {var rest = {};var hasOwn = Object.prototype.hasOwnProperty;if (source == null) {throw new TypeError();}for (var key in source) {if (hasOwn.call(source, key) && !hasOwn.call(exclusion, key)) {rest[key] = source[key];}}return rest;})($__0,{className:1,circle:1,innerClassName:1,rounded:1,zDepth:1}),
+      classes = this.getClasses(
+        'mui-paper ' +
+        'mui-z-depth-' + this.props.zDepth, { 
+        'mui-rounded': this.props.rounded,
+        'mui-circle': this.props.circle
+      }),
+      insideClasses = 
+        this.props.innerClassName + ' ' +
+        'mui-paper-container ' +
+        'mui-z-depth-bottom';
+
+    return (
+      React.createElement("div", React.__spread({},  other, {className: classes}), 
+        React.createElement("div", {ref: "innerContainer", className: insideClasses}, 
+          this.props.children
+        )
+      )
+    );
+  },
+
+  getInnerContainer: function() {
+    return this.refs.innerContainer;
+  }
+
+});
+
+module.exports = Paper;
+},{"./mixins/classable.js":42,"react":226}],47:[function(require,module,exports){
+var React = require('react'),
+    Paper = require('./paper.jsx'),
+    Classable = require('./mixins/classable.js');
+
+var RadioButton = React.createClass({displayName: "RadioButton",
+
+  mixins: [Classable],
+
+  propTypes: {
+    label: React.PropTypes.string,
+    name: React.PropTypes.string,
+    onClick: React.PropTypes.func,
+    value: React.PropTypes.string,
+    defaultChecked: React.PropTypes.bool
+  },
+  getDefaultProps: function(){
+    return {
+       defaultChecked: false
+    }
+  },
+  getInitialState: function() {
+    return {
+      checked: this.props.defaultChecked
+    }
+  },
+
+  toggle: function() {
+    var radioButton = this.refs.radioButton.getDOMNode();
+
+    this.setState({ checked: !this.state.checked });
+    radioButton.checked = !radioButton.checked;
+  },
+
+  render: function() {
+    var classes = this.getClasses('mui-radio-button');
+
+    return (
+      React.createElement("div", {className: classes, onClick: this._onClick}, 
+        React.createElement("div", {className: "mui-radio-button-target"}, 
+          React.createElement("input", {
+            ref: "radioButton", 
+            type: "radio", 
+            name: this.props.name, 
+            value: this.props.value, 
+            defaultChecked: this.props.defaultChecked}
+          ), 
+          React.createElement("div", {className: "mui-radio-button-fill"})
+          ), 
+        React.createElement("span", {className: "mui-radio-button-label"}, this.props.label)
+      )
+    );
+  },
+
+  _onClick: function(e) {
+    var checkedState = this.state.checked;
+
+    this.toggle();
+    if (this.props.onClick) this.props.onClick(e, !checkedState);
+  }
+
+});
+
+module.exports = RadioButton;
+
+},{"./mixins/classable.js":42,"./paper.jsx":46,"react":226}],48:[function(require,module,exports){
+var React = require('react'),
+  CssEvent = require('./utils/css-event.js'),
+  Classable = require('./mixins/classable.js'),
+  EnhancedButton = require('./enhanced-button.jsx'),
+  Paper = require('./paper.jsx'),
+  Ripple = require('./ripple.jsx');
+
+var RaisedButton = React.createClass({displayName: "RaisedButton",
+
+  mixins: [Classable],
+
+  propTypes: {
+    className: React.PropTypes.string,
+    label: React.PropTypes.string.isRequired,
+    onTouchTap: React.PropTypes.func,
+    primary: React.PropTypes.bool
+  },
+
+  getInitialState: function() {
+    var zDepth = this.props.disabled ? 0 : 1;
+    return {
+      zDepth: zDepth,
+      initialZDepth: zDepth
+    };
+  },
+
+  render: function() {
+    var $__0=
+      
+      
+         this.props,className=$__0.className,onTouchTap=$__0.onTouchTap,other=(function(source, exclusion) {var rest = {};var hasOwn = Object.prototype.hasOwnProperty;if (source == null) {throw new TypeError();}for (var key in source) {if (hasOwn.call(source, key) && !hasOwn.call(exclusion, key)) {rest[key] = source[key];}}return rest;})($__0,{className:1,onTouchTap:1}),
+      classes = this.getClasses('mui-raised-button', {
+        'mui-is-primary': this.props.primary
+      });
+
+    return (
+      React.createElement(Paper, {className: classes, zDepth: this.state.zDepth}, 
+        React.createElement(EnhancedButton, React.__spread({},  
+          other, 
+          {className: "mui-raised-button-container", 
+          onTouchTap: this._onTouchTap}), 
+
+          React.createElement(Ripple, {ref: "ripple", className: "mui-raised-button-ripple"}), 
+          React.createElement(Ripple, {className: "mui-raised-button-focus-ripple"}), 
+          React.createElement("span", {className: "mui-raised-button-label"}, this.props.label)
+
+        )
+      )
+    );
+  },
+
+  _onTouchTap: function(e) {
+    if (!this.props.disabled) this._animateButtonClick(e);
+    if (this.props.onTouchTap) this.props.onTouchTap(e);
+  },
+
+  _animateButtonClick: function(e) {
+    var el = this.getDOMNode();
+
+    //animate the ripple
+    this.refs.ripple.animate(e);
+
+    //animate the zdepth change
+    this.setState({ zDepth: this.state.initialZDepth + 1 });
+    setTimeout(function() {
+      this.setState({ zDepth: this.state.initialZDepth });
+    }.bind(this), 450);
+  }
+
+});
+
+module.exports = RaisedButton;
+},{"./enhanced-button.jsx":33,"./mixins/classable.js":42,"./paper.jsx":46,"./ripple.jsx":49,"./utils/css-event.js":56,"react":226}],49:[function(require,module,exports){
+var React = require('react'),
+  CssEvent = require('./utils/css-event.js'),
+  Dom = require('./utils/dom.js'),
+  Classable = require('./mixins/classable.js');
+
+var Ripple = React.createClass({displayName: "Ripple",
+
+  mixins: [Classable],
+
+  render: function() {
+    var classes = this.getClasses('mui-ripple');
+
+    return (
+      React.createElement("div", {className: classes})
+    );
+  },
+
+  animate: function(e, callback) {
+    var el = this.getDOMNode(),
+      offset = Dom.offset(el.parentNode),
+      pageX = e.pageX == undefined ? e.nativeEvent.pageX : e.pageX,
+      pageY = e.pageY == undefined ? e.nativeEvent.pageY : e.pageY,
+      x = pageX - offset.left,
+      y = pageY - offset.top;
+
+    this._animateRipple(el, x, y, callback);
+  },
+
+  animateFromCenter: function(callback) {
+    var el = this.getDOMNode(),
+      x = el.parentNode.offsetWidth / 2,
+      y = el.parentNode.offsetHeight / 2;
+
+    this._animateRipple(el, x, y, callback);
+  },
+
+  _animateRipple: function(el, x, y, callback) {
+    el.style.transition = 'none';
+    el.style.top = y + 'px';
+    el.style.left = x + 'px';
+
+    Dom.addClass(el, 'mui-is-visible');
+
+    CssEvent.onAnimationEnd(el, function() {
+      Dom.removeClass(el, 'mui-is-visible');
+      if (callback) callback();
+    });
+  }
+
+});
+
+module.exports = Ripple;
+},{"./mixins/classable.js":42,"./utils/css-event.js":56,"./utils/dom.js":57,"react":226}],50:[function(require,module,exports){
+/** * @jsx React.DOM */var React = require('react'),    Paper = require('./paper.jsx'),    Classable = require('./mixins/classable.js'),    Draggable = require('react-draggable2');var Slider = React.createClass({displayName: "Slider",  propTypes: {    required: React.PropTypes.bool,    disabled: React.PropTypes.bool,    min: React.PropTypes.number,    max: React.PropTypes.number,    step: React.PropTypes.number,    error: React.PropTypes.string,    description: React.PropTypes.string,    name: React.PropTypes.string.isRequired,    onChange: React.PropTypes.func  },  mixins: [Classable],  getDefaultProps: function() {    return {      required: true,      disabled: false,      defaultValue: 0,      min: 0,      max: 1,      dragging: false    };  },  getInitialState: function() {    var value = this.props.value;    if (value == null) value = this.props.defaultValue;    var percent = value / this.props.max;    if (isNaN(percent)) percent = 0;    return {      value: value,      percent: percent    }  },  componentWillReceiveProps: function(nextProps) {    if (nextProps.value != null) {      this.setValue(nextProps.value);    }  },  render: function() {    var classes = this.getClasses('mui-input', {      'mui-error': this.props.error != null    });    var sliderClasses = this.getClasses('mui-slider', {      'mui-slider-zero': this.state.percent == 0,      'mui-disabled': this.props.disabled    });    var percent = this.state.percent;    if (percent > 1) percent = 1; else if (percent < 0) percent = 0;    return (      React.createElement("div", {className: classes},         React.createElement("span", {className: "mui-input-highlight"}),         React.createElement("span", {className: "mui-input-bar"}),         React.createElement("span", {className: "mui-input-description"}, this.props.description),         React.createElement("span", {className: "mui-input-error"}, this.props.error),         React.createElement("div", {className: sliderClasses, onClick: this._onClick},           React.createElement("div", {ref: "track", className: "mui-slider-track"},             React.createElement(Draggable, {axis: "x", bound: "point",               cancel: this.props.disabled ? '*' : null,               start: {x: (percent * 100) + '%'},               onStart: this._onDragStart,               onStop: this._onDragStop,               onDrag: this._onDragUpdate},               React.createElement("div", {className: "mui-slider-handle", tabIndex: 0})            ),             React.createElement("div", {className: "mui-slider-selection mui-slider-selection-low",               style: {width: (percent * 100) + '%'}},               React.createElement("div", {className: "mui-slider-selection-fill"})            ),             React.createElement("div", {className: "mui-slider-selection mui-slider-selection-high",               style: {width: ((1 - percent) * 100) + '%'}},               React.createElement("div", {className: "mui-slider-selection-fill"})            )          )        ),         React.createElement("input", {ref: "input", type: "hidden",           name: this.props.name,           value: this.state.value,           required: this.props.required,           min: this.props.min,           max: this.props.max,           step: this.props.step})      )    );  },  getValue: function() {    return this.state.value;  },  setValue: function(i) {    // calculate percentage    var percent = (i - this.props.min) / (this.props.max - this.props.min);    if (isNaN(percent)) percent = 0;    // update state    this.setState({      value: i,      percent: percent    });  },  getPercent: function() {    return this.state.percent;  },  setPercent: function (percent) {    var value = percent * (this.props.max - this.props.min) + this.props.min;    this.setState({value: value, percent: percent});  },  clearValue: function() {    this.setValue(0);  },  _onClick: function (e) {    // let draggable handle the slider    if (this.state.dragging || this.props.disabled) return;    var node = this.refs.track.getDOMNode();    var boundingClientRect = node.getBoundingClientRect();    var offset = e.clientX - boundingClientRect.left;    var percent = offset / node.clientWidth;    this.setPercent(percent);  },  _onDragStart: function(e, ui) {    this.setState({      dragging: true    });  },  _onDragStop: function(e, ui) {    this.setState({      dragging: false    });  },  _onDragUpdate: function(e, ui) {    if (!this.state.dragging) return;    var value = this.state.value;    if (!this.props.disabled) this._dragX(ui.position.left);    if (this.state.value != value && this.props.onChange) {      this.props.onChange(e, this.state.value);    }  },  _dragX: function(pos) {    var max = this.refs.track.getDOMNode().clientWidth;    if (pos < 0) pos = 0; else if (pos > max) pos = max;    this.setPercent(pos / max);  }});module.exports = Slider;
+},{"./mixins/classable.js":42,"./paper.jsx":46,"react":226,"react-draggable2":23}],51:[function(require,module,exports){
+/** @jsx React.DOM */
+
+var React = require('react');
+var Classable = require('./mixins/classable.js');
+var ClickAwayable = require('./mixins/click-awayable.js');
+
+var Toast = React.createClass({displayName: "Toast",
+
+  mixins: [Classable, ClickAwayable],
+
+  propTypes: {
+    action: React.PropTypes.string,
+    icon: React.PropTypes.string,
+    message: React.PropTypes.string,
+    onClick: React.PropTypes.func,
+    open: React.PropTypes.bool
+  },
+
+  getInitialState: function() {
+    return {
+      open: false
+    }
+  },
+
+  componentWillReceiveProps: function(nextProps) {
+    this.setState({ open: nextProps.open });
+  },
+
+  componentClickAway: function() {
+    this.setState({ open: false });
+  },
+
+  render: function() {
+    var classes = this.getClasses('mui-toast', {
+        'mui-open': this.state.open
+      }),
+      message,
+      action;
+
+    if (this.props.message)
+      message = React.createElement("span", {className: "mui-toast-message"}, this.props.message);
+    if (this.props.action)
+      action = React.createElement("span", {className: "mui-toast-action", onClick: this._onActionClick}, this.props.action);
+
+    return (
+      React.createElement("span", {className: classes}, 
+        message, 
+        action
+      )
+    );
+  },
+
+  _onActionClick: function(e) {
+    if (this.props.onClick) this.props.onClick(e, this.props.action);
+    this.setState({ open: false });
+  }
+
+});
+
+module.exports = Toast;
+
+},{"./mixins/classable.js":42,"./mixins/click-awayable.js":43,"react":226}],52:[function(require,module,exports){
+var React = require('react'),
+    Classable = require('./mixins/classable.js'),
+    Paper = require('./paper.jsx');
+
+var Toggle = React.createClass({displayName: "Toggle",
+
+  propTypes: {
+    onToggle: React.PropTypes.func,
+    toggled: React.PropTypes.bool
+  },
+
+  mixins: [Classable],
+
+  getInitialState: function() {
+    return {
+      toggled: this.props.toggled
+    }
+  },
+
+  render: function() {
+    var classes = this.getClasses('mui-toggle', {
+      'mui-is-toggled': this.state.toggled
+    })
+
+    return (
+      React.createElement("div", {className: classes, onTouchTap: this._handleTouchTap}, 
+        React.createElement("div", {className: "mui-toggle-track"}), 
+        React.createElement(Paper, {className: "mui-toggle-thumb", zDepth: 1})
+      )
+    );
+  },
+
+  _handleTouchTap: function(e) {
+    var toggledState = !this.state.toggled;
+
+    this.setState({ toggled: toggledState });
+
+    if (this.props.onToggle) this.props.onToggle(e, toggledState);
+  }
+
+});
+
+module.exports = Toggle;
+},{"./mixins/classable.js":42,"./paper.jsx":46,"react":226}],53:[function(require,module,exports){
+/** @jsx React.DOM */
+
+var Classable = require('./mixins/classable.js');
+var React = require('react');
+
+var ToolbarGroup = React.createClass({displayName: "ToolbarGroup",
+
+  propTypes: {
+    float: React.PropTypes.string
+  },
+
+  mixins: [Classable],
+
+  render: function() {
+
+    var classes = this.getClasses('mui-toolbar-group', {
+      'mui-left': this.props.float === 'left',
+      'mui-right': this.props.float === 'right'
+    });
+
+    return (
+      React.createElement("div", {className: classes}, 
+        this.props.children
+      )
+    );
+  }
+
+});
+
+module.exports = ToolbarGroup;
+
+},{"./mixins/classable.js":42,"react":226}],54:[function(require,module,exports){
+/** @jsx React.DOM */
+
+var Classable = require('./mixins/classable.js');
+var React = require('react');
+
+var Toolbar = React.createClass({displayName: "Toolbar",
+
+  mixins: [Classable],
+
+  render: function() {
+    var classes = this.getClasses('mui-toolbar', {
+    });
+
+    return (
+      React.createElement("div", {className: classes}, 
+        this.props.children
+      )
+    );
+  }
+
+});
+
+module.exports = Toolbar;
+
+},{"./mixins/classable.js":42,"react":226}],55:[function(require,module,exports){
+var React = require('react');
+var Classable = require('./mixins/classable.js');
+var Ripple = require('./ripple.jsx');
+
+var Tooltip = React.createClass({displayName: "Tooltip",
+
+  mixins: [Classable],
+
+  propTypes: {
+    className: React.PropTypes.string,
+    label: React.PropTypes.string.isRequired,
+    show: React.PropTypes.bool,
+    touch: React.PropTypes.bool
+  },
+
+  componentDidMount: function() {
+    this._setRippleSize();
+  },
+
+  componentDidUpdate: function(prevProps, prevState) {
+    this._setRippleSize();
+  },
+
+  render: function() {
+    var $__0=
+      
+      
+         this.props,className=$__0.className,label=$__0.label,other=(function(source, exclusion) {var rest = {};var hasOwn = Object.prototype.hasOwnProperty;if (source == null) {throw new TypeError();}for (var key in source) {if (hasOwn.call(source, key) && !hasOwn.call(exclusion, key)) {rest[key] = source[key];}}return rest;})($__0,{className:1,label:1});
+    var classes = this.getClasses('mui-tooltip', {
+      'mui-is-shown': this.props.show,
+      'mui-is-touch': this.props.touch
+    });
+
+    return (
+      React.createElement("div", React.__spread({},  other, {className: classes}), 
+        React.createElement("div", {ref: "ripple", className: "mui-tooltip-ripple"}), 
+        React.createElement("span", {className: "mui-tooltip-label"}, this.props.label)
+      )
+    );
+  },
+
+  _setRippleSize: function() {
+    var ripple = this.refs.ripple.getDOMNode();
+    var tooltipSize = this.getDOMNode().offsetWidth;
+    var ripplePadding = this.props.touch ? 45 : 20;
+    var rippleSize = tooltipSize + ripplePadding + 'px';
+
+    if (this.props.show) {
+      ripple.style.height = rippleSize;
+      ripple.style.width = rippleSize;
+    } else {
+      ripple.style.width = '0px';
+      ripple.style.height = '0px';
+    }
+  }
+
+});
+
+module.exports = Tooltip;
+},{"./mixins/classable.js":42,"./ripple.jsx":49,"react":226}],56:[function(require,module,exports){
+var Events = require('./events.js');
+
+module.exports = {
+
+  _testSupportedProps: function(props) {
+    var i,
+      undefined,
+      el = document.createElement('div');
+
+    for (i in props) {
+      if (props.hasOwnProperty(i) && el.style[i] !== undefined) {
+        return props[i];
+      }
+    }
+  },
+
+  //Returns the correct event name to use
+  transitionEndEventName: function() {
+    return this._testSupportedProps({
+      'transition':'transitionend',
+      'OTransition':'otransitionend',  
+      'MozTransition':'transitionend',
+      'WebkitTransition':'webkitTransitionEnd'
+    });
+  },
+
+  animationEndEventName: function() {
+    return this._testSupportedProps({
+      'animation': 'animationend',
+      '-o-animation': 'oAnimationEnd',
+      '-moz-animation': 'animationend',
+      '-webkit-animation': 'webkitAnimationEnd'
+    });
+  },
+
+  onTransitionEnd: function (el, callback) {
+    var transitionEnd = this.transitionEndEventName();
+
+    Events.once(el, transitionEnd, function() {
+      return callback();
+    });
+  },
+
+  onAnimationEnd: function (el, callback) {
+    var animationEnd = this.animationEndEventName();
+
+    Events.once(el, animationEnd, function() {
+      return callback();
+    });
+  }
+
+};
+},{"./events.js":58}],57:[function(require,module,exports){
+module.exports = {
+
+  isDescendant: function(parent, child) {
+    var node = child.parentNode;
+
+    while (node != null) {
+      if (node == parent) return true;
+      node = node.parentNode;
+    }
+
+    return false;
+  },
+
+  offset: function(el) {
+    var rect = el.getBoundingClientRect()
+    return {
+      top: rect.top + document.body.scrollTop,
+      left: rect.left + document.body.scrollLeft
+    };
+  },
+
+  addClass: function(el, className) {
+    if (el.classList)
+      el.classList.add(className);
+    else
+      el.className += ' ' + className;
+  },
+
+  removeClass: function(el, className) {
+    if (el.classList)
+      el.classList.remove(className);
+    else
+      el.className = el.className.replace(new RegExp('(^|\\b)' + className.split(' ').join('|') + '(\\b|$)', 'gi'), ' ');
+  },
+
+  hasClass: function(el, className) {
+    if (el.classList)
+      return el.classList.contains(className);
+    else
+      return new RegExp('(^| )' + className + '( |$)', 'gi').test(el.className);
+  },
+
+  toggleClass: function(el, className) {
+    if (this.hasClass(el, className))
+      this.removeClass(el, className);
+    else
+      this.addClass(el, className);
+  },
+
+  forceRedraw: function(el) {
+    var originalDisplay = el.style.display;
+
+    el.style.display = 'none';
+    el.offsetHeight;
+    el.style.display = originalDisplay;
+  },
+
+  withoutTransition: function(el, callback) {
+    //turn off transition
+    el.style.transition = 'none';
+    
+    callback();
+
+    //force a redraw
+    this.forceRedraw(el);
+
+    //put the transition back
+    el.style.transition = '';
+  }
+  
+}
+},{}],58:[function(require,module,exports){
+module.exports = {
+
+  once: function (el, type, callback) {
+    var typeArray = type.split(' ');
+
+    for (var i = typeArray.length - 1; i >= 0; i--) {
+      el.addEventListener(typeArray[i], function(e) {
+        e.target.removeEventListener(e.type, arguments.callee);
+        return callback(e);
+      });
+    };
+  },
+
+  on: function(el, type, callback, capture) {
+    el.addEventListener(type, callback, capture || false);
+  },
+
+  off: function(el, type, callback, capture) {
+    el.removeEventListener(type, callback, capture || false);
+  }
+
+}
+},{}],59:[function(require,module,exports){
+module.exports = {
+  ESC: 27,
+  ENTER: 13,
+  TAB: 9
+}
+},{}],60:[function(require,module,exports){
+module.exports = {
+
+  Desktop: {
+    GUTTER: 24,
+    GUTTER_LESS: 16,
+    INCREMENT: 64,
+    MENU_ITEM_HEIGHT: 32
+  },
+
+  getIncrementalDim: function(dim) {
+    return Math.ceil(dim / this.Desktop.INCREMENT) * this.Desktop.INCREMENT;
+  }
+}
+
+},{}],61:[function(require,module,exports){
+/**
+ * Copyright 2013-2014, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+ * @providesModule ResponderEventPlugin
+ */
+
+"use strict";
+
+var EventConstants = require('react/lib/EventConstants');
+var EventPluginUtils = require('react/lib/EventPluginUtils');
+var EventPropagators = require('react/lib/EventPropagators');
+var SyntheticEvent = require('react/lib/SyntheticEvent');
+
+var accumulateInto = require('react/lib/accumulateInto');
+var keyOf = require('react/lib/keyOf');
+
+var isStartish = EventPluginUtils.isStartish;
+var isMoveish = EventPluginUtils.isMoveish;
+var isEndish = EventPluginUtils.isEndish;
+var executeDirectDispatch = EventPluginUtils.executeDirectDispatch;
+var hasDispatches = EventPluginUtils.hasDispatches;
+var executeDispatchesInOrderStopAtTrue =
+  EventPluginUtils.executeDispatchesInOrderStopAtTrue;
+
+/**
+ * ID of element that should respond to touch/move types of interactions, as
+ * indicated explicitly by relevant callbacks.
+ */
+var responderID = null;
+var isPressing = false;
+
+var eventTypes = {
+  /**
+   * On a `touchStart`/`mouseDown`, is it desired that this element become the
+   * responder?
+   */
+  startShouldSetResponder: {
+    phasedRegistrationNames: {
+      bubbled: keyOf({onStartShouldSetResponder: null}),
+      captured: keyOf({onStartShouldSetResponderCapture: null})
+    }
+  },
+
+  /**
+   * On a `scroll`, is it desired that this element become the responder? This
+   * is usually not needed, but should be used to retroactively infer that a
+   * `touchStart` had occured during momentum scroll. During a momentum scroll,
+   * a touch start will be immediately followed by a scroll event if the view is
+   * currently scrolling.
+   */
+  scrollShouldSetResponder: {
+    phasedRegistrationNames: {
+      bubbled: keyOf({onScrollShouldSetResponder: null}),
+      captured: keyOf({onScrollShouldSetResponderCapture: null})
+    }
+  },
+
+  /**
+   * On a `touchMove`/`mouseMove`, is it desired that this element become the
+   * responder?
+   */
+  moveShouldSetResponder: {
+    phasedRegistrationNames: {
+      bubbled: keyOf({onMoveShouldSetResponder: null}),
+      captured: keyOf({onMoveShouldSetResponderCapture: null})
+    }
+  },
+
+  /**
+   * Direct responder events dispatched directly to responder. Do not bubble.
+   */
+  responderMove: {registrationName: keyOf({onResponderMove: null})},
+  responderRelease: {registrationName: keyOf({onResponderRelease: null})},
+  responderTerminationRequest: {
+    registrationName: keyOf({onResponderTerminationRequest: null})
+  },
+  responderGrant: {registrationName: keyOf({onResponderGrant: null})},
+  responderReject: {registrationName: keyOf({onResponderReject: null})},
+  responderTerminate: {registrationName: keyOf({onResponderTerminate: null})}
+};
+
+/**
+ * Performs negotiation between any existing/current responder, checks to see if
+ * any new entity is interested in becoming responder, performs that handshake
+ * and returns any events that must be emitted to notify the relevant parties.
+ *
+ * A note about event ordering in the `EventPluginHub`.
+ *
+ * Suppose plugins are injected in the following order:
+ *
+ * `[R, S, C]`
+ *
+ * To help illustrate the example, assume `S` is `SimpleEventPlugin` (for
+ * `onClick` etc) and `R` is `ResponderEventPlugin`.
+ *
+ * "Deferred-Dispatched Events":
+ *
+ * - The current event plugin system will traverse the list of injected plugins,
+ *   in order, and extract events by collecting the plugin's return value of
+ *   `extractEvents()`.
+ * - These events that are returned from `extractEvents` are "deferred
+ *   dispatched events".
+ * - When returned from `extractEvents`, deferred-dispatched events contain an
+ *   "accumulation" of deferred dispatches.
+ * - These deferred dispatches are accumulated/collected before they are
+ *   returned, but processed at a later time by the `EventPluginHub` (hence the
+ *   name deferred).
+ *
+ * In the process of returning their deferred-dispatched events, event plugins
+ * themselves can dispatch events on-demand without returning them from
+ * `extractEvents`. Plugins might want to do this, so that they can use event
+ * dispatching as a tool that helps them decide which events should be extracted
+ * in the first place.
+ *
+ * "On-Demand-Dispatched Events":
+ *
+ * - On-demand-dispatched events are not returned from `extractEvents`.
+ * - On-demand-dispatched events are dispatched during the process of returning
+ *   the deferred-dispatched events.
+ * - They should not have side effects.
+ * - They should be avoided, and/or eventually be replaced with another
+ *   abstraction that allows event plugins to perform multiple "rounds" of event
+ *   extraction.
+ *
+ * Therefore, the sequence of event dispatches becomes:
+ *
+ * - `R`s on-demand events (if any)   (dispatched by `R` on-demand)
+ * - `S`s on-demand events (if any)   (dispatched by `S` on-demand)
+ * - `C`s on-demand events (if any)   (dispatched by `C` on-demand)
+ * - `R`s extracted events (if any)   (dispatched by `EventPluginHub`)
+ * - `S`s extracted events (if any)   (dispatched by `EventPluginHub`)
+ * - `C`s extracted events (if any)   (dispatched by `EventPluginHub`)
+ *
+ * In the case of `ResponderEventPlugin`: If the `startShouldSetResponder`
+ * on-demand dispatch returns `true` (and some other details are satisfied) the
+ * `onResponderGrant` deferred dispatched event is returned from
+ * `extractEvents`. The sequence of dispatch executions in this case
+ * will appear as follows:
+ *
+ * - `startShouldSetResponder` (`ResponderEventPlugin` dispatches on-demand)
+ * - `touchStartCapture`       (`EventPluginHub` dispatches as usual)
+ * - `touchStart`              (`EventPluginHub` dispatches as usual)
+ * - `responderGrant/Reject`   (`EventPluginHub` dispatches as usual)
+ *
+ * @param {string} topLevelType Record from `EventConstants`.
+ * @param {string} topLevelTargetID ID of deepest React rendered element.
+ * @param {object} nativeEvent Native browser event.
+ * @return {*} An accumulation of synthetic events.
+ */
+function setResponderAndExtractTransfer(
+    topLevelType,
+    topLevelTargetID,
+    nativeEvent) {
+  var shouldSetEventType =
+    isStartish(topLevelType) ? eventTypes.startShouldSetResponder :
+    isMoveish(topLevelType) ? eventTypes.moveShouldSetResponder :
+    eventTypes.scrollShouldSetResponder;
+
+  var bubbleShouldSetFrom = responderID || topLevelTargetID;
+  var shouldSetEvent = SyntheticEvent.getPooled(
+    shouldSetEventType,
+    bubbleShouldSetFrom,
+    nativeEvent
+  );
+  EventPropagators.accumulateTwoPhaseDispatches(shouldSetEvent);
+  var wantsResponderID = executeDispatchesInOrderStopAtTrue(shouldSetEvent);
+  if (!shouldSetEvent.isPersistent()) {
+    shouldSetEvent.constructor.release(shouldSetEvent);
+  }
+
+  if (!wantsResponderID || wantsResponderID === responderID) {
+    return null;
+  }
+  var extracted;
+  var grantEvent = SyntheticEvent.getPooled(
+    eventTypes.responderGrant,
+    wantsResponderID,
+    nativeEvent
+  );
+
+  EventPropagators.accumulateDirectDispatches(grantEvent);
+  if (responderID) {
+    var terminationRequestEvent = SyntheticEvent.getPooled(
+      eventTypes.responderTerminationRequest,
+      responderID,
+      nativeEvent
+    );
+    EventPropagators.accumulateDirectDispatches(terminationRequestEvent);
+    var shouldSwitch = !hasDispatches(terminationRequestEvent) ||
+      executeDirectDispatch(terminationRequestEvent);
+    if (!terminationRequestEvent.isPersistent()) {
+      terminationRequestEvent.constructor.release(terminationRequestEvent);
+    }
+
+    if (shouldSwitch) {
+      var terminateType = eventTypes.responderTerminate;
+      var terminateEvent = SyntheticEvent.getPooled(
+        terminateType,
+        responderID,
+        nativeEvent
+      );
+      EventPropagators.accumulateDirectDispatches(terminateEvent);
+      extracted = accumulateInto(extracted, [grantEvent, terminateEvent]);
+      responderID = wantsResponderID;
+    } else {
+      var rejectEvent = SyntheticEvent.getPooled(
+        eventTypes.responderReject,
+        wantsResponderID,
+        nativeEvent
+      );
+      EventPropagators.accumulateDirectDispatches(rejectEvent);
+      extracted = accumulateInto(extracted, rejectEvent);
+    }
+  } else {
+    extracted = accumulateInto(extracted, grantEvent);
+    responderID = wantsResponderID;
+  }
+  return extracted;
+}
+
+/**
+ * A transfer is a negotiation between a currently set responder and the next
+ * element to claim responder status. Any start event could trigger a transfer
+ * of responderID. Any move event could trigger a transfer, so long as there is
+ * currently a responder set (in other words as long as the user is pressing
+ * down).
+ *
+ * @param {string} topLevelType Record from `EventConstants`.
+ * @return {boolean} True if a transfer of responder could possibly occur.
+ */
+function canTriggerTransfer(topLevelType) {
+  return topLevelType === EventConstants.topLevelTypes.topScroll ||
+         isStartish(topLevelType) ||
+         (isPressing && isMoveish(topLevelType));
+}
+
+/**
+ * Event plugin for formalizing the negotiation between claiming locks on
+ * receiving touches.
+ */
+var ResponderEventPlugin = {
+
+  getResponderID: function() {
+    return responderID;
+  },
+
+  eventTypes: eventTypes,
+
+  /**
+   * @param {string} topLevelType Record from `EventConstants`.
+   * @param {DOMEventTarget} topLevelTarget The listening component root node.
+   * @param {string} topLevelTargetID ID of `topLevelTarget`.
+   * @param {object} nativeEvent Native browser event.
+   * @return {*} An accumulation of synthetic events.
+   * @see {EventPluginHub.extractEvents}
+   */
+  extractEvents: function(
+      topLevelType,
+      topLevelTarget,
+      topLevelTargetID,
+      nativeEvent) {
+    var extracted;
+    // Must have missed an end event - reset the state here.
+    if (responderID && isStartish(topLevelType)) {
+      responderID = null;
+    }
+    if (isStartish(topLevelType)) {
+      isPressing = true;
+    } else if (isEndish(topLevelType)) {
+      isPressing = false;
+    }
+    if (canTriggerTransfer(topLevelType)) {
+      var transfer = setResponderAndExtractTransfer(
+        topLevelType,
+        topLevelTargetID,
+        nativeEvent
+      );
+      if (transfer) {
+        extracted = accumulateInto(extracted, transfer);
+      }
+    }
+    // Now that we know the responder is set correctly, we can dispatch
+    // responder type events (directly to the responder).
+    var type = isMoveish(topLevelType) ? eventTypes.responderMove :
+      isEndish(topLevelType) ? eventTypes.responderRelease :
+      isStartish(topLevelType) ? eventTypes.responderStart : null;
+    if (type) {
+      var gesture = SyntheticEvent.getPooled(
+        type,
+        responderID || '',
+        nativeEvent
+      );
+      EventPropagators.accumulateDirectDispatches(gesture);
+      extracted = accumulateInto(extracted, gesture);
+    }
+    if (type === eventTypes.responderRelease) {
+      responderID = null;
+    }
+    return extracted;
+  }
+
+};
+
+module.exports = ResponderEventPlugin;
+
+},{"react/lib/EventConstants":81,"react/lib/EventPluginUtils":85,"react/lib/EventPropagators":86,"react/lib/SyntheticEvent":164,"react/lib/accumulateInto":174,"react/lib/keyOf":212}],62:[function(require,module,exports){
+/**
+ * Copyright 2013-2014 Facebook, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * @providesModule TapEventPlugin
+ * @typechecks static-only
+ */
+
+"use strict";
+
+var EventConstants = require('react/lib/EventConstants');
+var EventPluginUtils = require('react/lib/EventPluginUtils');
+var EventPropagators = require('react/lib/EventPropagators');
+var SyntheticUIEvent = require('react/lib/SyntheticUIEvent');
+var TouchEventUtils = require('./TouchEventUtils');
+var ViewportMetrics = require('react/lib/ViewportMetrics');
+
+var keyOf = require('react/lib/keyOf');
+var topLevelTypes = EventConstants.topLevelTypes;
+
+var isStartish = EventPluginUtils.isStartish;
+var isEndish = EventPluginUtils.isEndish;
+
+var isTouch = function(topLevelType) {
+  var touchTypes = [
+    topLevelTypes.topTouchCancel,
+    topLevelTypes.topTouchEnd,
+    topLevelTypes.topTouchStart,
+    topLevelTypes.topTouchMove
+  ];
+  return touchTypes.indexOf(topLevelType) >= 0;
+}
+
+/**
+ * Number of pixels that are tolerated in between a `touchStart` and `touchEnd`
+ * in order to still be considered a 'tap' event.
+ */
+var tapMoveThreshold = 10;
+var ignoreMouseThreshold = 750;
+var startCoords = {x: null, y: null};
+var lastTouchEvent = null;
+
+var Axis = {
+  x: {page: 'pageX', client: 'clientX', envScroll: 'currentPageScrollLeft'},
+  y: {page: 'pageY', client: 'clientY', envScroll: 'currentPageScrollTop'}
+};
+
+function getAxisCoordOfEvent(axis, nativeEvent) {
+  var singleTouch = TouchEventUtils.extractSingleTouch(nativeEvent);
+  if (singleTouch) {
+    return singleTouch[axis.page];
+  }
+  return axis.page in nativeEvent ?
+    nativeEvent[axis.page] :
+    nativeEvent[axis.client] + ViewportMetrics[axis.envScroll];
+}
+
+function getDistance(coords, nativeEvent) {
+  var pageX = getAxisCoordOfEvent(Axis.x, nativeEvent);
+  var pageY = getAxisCoordOfEvent(Axis.y, nativeEvent);
+  return Math.pow(
+    Math.pow(pageX - coords.x, 2) + Math.pow(pageY - coords.y, 2),
+    0.5
+  );
+}
+
+var dependencies = [
+  topLevelTypes.topMouseDown,
+  topLevelTypes.topMouseMove,
+  topLevelTypes.topMouseUp
+];
+
+if (EventPluginUtils.useTouchEvents) {
+  dependencies.push(
+    topLevelTypes.topTouchCancel,
+    topLevelTypes.topTouchEnd,
+    topLevelTypes.topTouchStart,
+    topLevelTypes.topTouchMove
+  );
+}
+
+var eventTypes = {
+  touchTap: {
+    phasedRegistrationNames: {
+      bubbled: keyOf({onTouchTap: null}),
+      captured: keyOf({onTouchTapCapture: null})
+    },
+    dependencies: dependencies
+  }
+};
+
+var TapEventPlugin = {
+
+  tapMoveThreshold: tapMoveThreshold,
+
+  ignoreMouseThreshold: ignoreMouseThreshold,
+
+  eventTypes: eventTypes,
+
+  /**
+   * @param {string} topLevelType Record from `EventConstants`.
+   * @param {DOMEventTarget} topLevelTarget The listening component root node.
+   * @param {string} topLevelTargetID ID of `topLevelTarget`.
+   * @param {object} nativeEvent Native browser event.
+   * @return {*} An accumulation of synthetic events.
+   * @see {EventPluginHub.extractEvents}
+   */
+  extractEvents: function(
+      topLevelType,
+      topLevelTarget,
+      topLevelTargetID,
+      nativeEvent) {
+
+    if (isTouch(topLevelType)) {
+      lastTouchEvent = nativeEvent.timeStamp;
+    } else {
+      if (lastTouchEvent && (nativeEvent.timeStamp - lastTouchEvent) < ignoreMouseThreshold) {
+        return null;
+      }
+    }
+
+    if (!isStartish(topLevelType) && !isEndish(topLevelType)) {
+      return null;
+    }
+    var event = null;
+    var distance = getDistance(startCoords, nativeEvent);
+    if (isEndish(topLevelType) && distance < tapMoveThreshold) {
+      event = SyntheticUIEvent.getPooled(
+        eventTypes.touchTap,
+        topLevelTargetID,
+        nativeEvent
+      );
+    }
+    if (isStartish(topLevelType)) {
+      startCoords.x = getAxisCoordOfEvent(Axis.x, nativeEvent);
+      startCoords.y = getAxisCoordOfEvent(Axis.y, nativeEvent);
+    } else if (isEndish(topLevelType)) {
+      startCoords.x = 0;
+      startCoords.y = 0;
+    }
+    EventPropagators.accumulateTwoPhaseDispatches(event);
+    return event;
+  }
+
+};
+
+module.exports = TapEventPlugin;
+},{"./TouchEventUtils":63,"react/lib/EventConstants":81,"react/lib/EventPluginUtils":85,"react/lib/EventPropagators":86,"react/lib/SyntheticUIEvent":170,"react/lib/ViewportMetrics":173,"react/lib/keyOf":212}],63:[function(require,module,exports){
+/**
+ * Copyright 2013-2014 Facebook, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * @providesModule TouchEventUtils
+ */
+
+var TouchEventUtils = {
+  /**
+   * Utility function for common case of extracting out the primary touch from a
+   * touch event.
+   * - `touchEnd` events usually do not have the `touches` property.
+   *   http://stackoverflow.com/questions/3666929/
+   *   mobile-sarai-touchend-event-not-firing-when-last-touch-is-removed
+   *
+   * @param {Event} nativeEvent Native event that may or may not be a touch.
+   * @return {TouchesObject?} an object with pageX and pageY or null.
+   */
+  extractSingleTouch: function(nativeEvent) {
+    var touches = nativeEvent.touches;
+    var changedTouches = nativeEvent.changedTouches;
+    var hasTouches = touches && touches.length > 0;
+    var hasChangedTouches = changedTouches && changedTouches.length > 0;
+
+    return !hasTouches && hasChangedTouches ? changedTouches[0] :
+           hasTouches ? touches[0] :
+           nativeEvent;
+  }
+};
+
+module.exports = TouchEventUtils;
+
+},{}],64:[function(require,module,exports){
+module.exports = function injectTapEventPlugin () {
+  var React = require("react");
+  React.initializeTouchEvents(true);
+
+  require('react/lib/EventPluginHub').injection.injectEventPluginsByName({
+    "ResponderEventPlugin": require('./ResponderEventPlugin.js'),
+    "TapEventPlugin":       require('./TapEventPlugin.js')
+  });
+};
+
+},{"./ResponderEventPlugin.js":61,"./TapEventPlugin.js":62,"react":226,"react/lib/EventPluginHub":83}],65:[function(require,module,exports){
+module.exports = require('./lib/ReactWithAddons');
+
+},{"./lib/ReactWithAddons":156}],66:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -4860,7 +11073,7 @@ var AutoFocusMixin = {
 
 module.exports = AutoFocusMixin;
 
-},{"./focusNode":123}],14:[function(require,module,exports){
+},{"./focusNode":190}],67:[function(require,module,exports){
 /**
  * Copyright 2013 Facebook, Inc.
  * All rights reserved.
@@ -5082,7 +11295,119 @@ var BeforeInputEventPlugin = {
 
 module.exports = BeforeInputEventPlugin;
 
-},{"./EventConstants":27,"./EventPropagators":32,"./ExecutionEnvironment":33,"./SyntheticInputEvent":101,"./keyOf":145}],15:[function(require,module,exports){
+},{"./EventConstants":81,"./EventPropagators":86,"./ExecutionEnvironment":87,"./SyntheticInputEvent":166,"./keyOf":212}],68:[function(require,module,exports){
+(function (process){
+/**
+ * Copyright 2013-2014, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+ * @providesModule CSSCore
+ * @typechecks
+ */
+
+var invariant = require("./invariant");
+
+/**
+ * The CSSCore module specifies the API (and implements most of the methods)
+ * that should be used when dealing with the display of elements (via their
+ * CSS classes and visibility on screen. It is an API focused on mutating the
+ * display and not reading it as no logical state should be encoded in the
+ * display of elements.
+ */
+
+var CSSCore = {
+
+  /**
+   * Adds the class passed in to the element if it doesn't already have it.
+   *
+   * @param {DOMElement} element the element to set the class on
+   * @param {string} className the CSS className
+   * @return {DOMElement} the element passed in
+   */
+  addClass: function(element, className) {
+    ("production" !== process.env.NODE_ENV ? invariant(
+      !/\s/.test(className),
+      'CSSCore.addClass takes only a single class name. "%s" contains ' +
+      'multiple classes.', className
+    ) : invariant(!/\s/.test(className)));
+
+    if (className) {
+      if (element.classList) {
+        element.classList.add(className);
+      } else if (!CSSCore.hasClass(element, className)) {
+        element.className = element.className + ' ' + className;
+      }
+    }
+    return element;
+  },
+
+  /**
+   * Removes the class passed in from the element
+   *
+   * @param {DOMElement} element the element to set the class on
+   * @param {string} className the CSS className
+   * @return {DOMElement} the element passed in
+   */
+  removeClass: function(element, className) {
+    ("production" !== process.env.NODE_ENV ? invariant(
+      !/\s/.test(className),
+      'CSSCore.removeClass takes only a single class name. "%s" contains ' +
+      'multiple classes.', className
+    ) : invariant(!/\s/.test(className)));
+
+    if (className) {
+      if (element.classList) {
+        element.classList.remove(className);
+      } else if (CSSCore.hasClass(element, className)) {
+        element.className = element.className
+          .replace(new RegExp('(^|\\s)' + className + '(?:\\s|$)', 'g'), '$1')
+          .replace(/\s+/g, ' ') // multiple spaces to one
+          .replace(/^\s*|\s*$/g, ''); // trim the ends
+      }
+    }
+    return element;
+  },
+
+  /**
+   * Helper to add or remove a class from an element based on a condition.
+   *
+   * @param {DOMElement} element the element to set the class on
+   * @param {string} className the CSS className
+   * @param {*} bool condition to whether to add or remove the class
+   * @return {DOMElement} the element passed in
+   */
+  conditionClass: function(element, className, bool) {
+    return (bool ? CSSCore.addClass : CSSCore.removeClass)(element, className);
+  },
+
+  /**
+   * Tests whether the element has the class specified.
+   *
+   * @param {DOMNode|DOMWindow} element the element to set the class on
+   * @param {string} className the CSS className
+   * @return {boolean} true if the element has the class, false if not
+   */
+  hasClass: function(element, className) {
+    ("production" !== process.env.NODE_ENV ? invariant(
+      !/\s/.test(className),
+      'CSS.hasClass takes only a single class name.'
+    ) : invariant(!/\s/.test(className)));
+    if (element.classList) {
+      return !!className && element.classList.contains(className);
+    }
+    return (' ' + element.className + ' ').indexOf(' ' + className + ' ') > -1;
+  }
+
+};
+
+module.exports = CSSCore;
+
+}).call(this,require('_process'))
+},{"./invariant":205,"_process":17}],69:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -5201,7 +11526,7 @@ var CSSProperty = {
 
 module.exports = CSSProperty;
 
-},{}],16:[function(require,module,exports){
+},{}],70:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2014, Facebook, Inc.
@@ -5336,7 +11661,7 @@ var CSSPropertyOperations = {
 module.exports = CSSPropertyOperations;
 
 }).call(this,require('_process'))
-},{"./CSSProperty":15,"./ExecutionEnvironment":33,"./camelizeStyleName":112,"./dangerousStyleValue":117,"./hyphenateStyleName":136,"./memoizeStringOnly":147,"./warning":157,"_process":8}],17:[function(require,module,exports){
+},{"./CSSProperty":69,"./ExecutionEnvironment":87,"./camelizeStyleName":177,"./dangerousStyleValue":184,"./hyphenateStyleName":203,"./memoizeStringOnly":214,"./warning":225,"_process":17}],71:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2014, Facebook, Inc.
@@ -5436,7 +11761,7 @@ PooledClass.addPoolingTo(CallbackQueue);
 module.exports = CallbackQueue;
 
 }).call(this,require('_process'))
-},{"./Object.assign":38,"./PooledClass":39,"./invariant":138,"_process":8}],18:[function(require,module,exports){
+},{"./Object.assign":93,"./PooledClass":94,"./invariant":205,"_process":17}],72:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -5818,7 +12143,7 @@ var ChangeEventPlugin = {
 
 module.exports = ChangeEventPlugin;
 
-},{"./EventConstants":27,"./EventPluginHub":29,"./EventPropagators":32,"./ExecutionEnvironment":33,"./ReactUpdates":91,"./SyntheticEvent":99,"./isEventSupported":139,"./isTextInputElement":141,"./keyOf":145}],19:[function(require,module,exports){
+},{"./EventConstants":81,"./EventPluginHub":83,"./EventPropagators":86,"./ExecutionEnvironment":87,"./ReactUpdates":155,"./SyntheticEvent":164,"./isEventSupported":206,"./isTextInputElement":208,"./keyOf":212}],73:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -5843,7 +12168,7 @@ var ClientReactRootIndex = {
 
 module.exports = ClientReactRootIndex;
 
-},{}],20:[function(require,module,exports){
+},{}],74:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -6102,7 +12427,7 @@ var CompositionEventPlugin = {
 
 module.exports = CompositionEventPlugin;
 
-},{"./EventConstants":27,"./EventPropagators":32,"./ExecutionEnvironment":33,"./ReactInputSelection":71,"./SyntheticCompositionEvent":97,"./getTextContentAccessor":133,"./keyOf":145}],21:[function(require,module,exports){
+},{"./EventConstants":81,"./EventPropagators":86,"./ExecutionEnvironment":87,"./ReactInputSelection":129,"./SyntheticCompositionEvent":162,"./getTextContentAccessor":200,"./keyOf":212}],75:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2014, Facebook, Inc.
@@ -6277,7 +12602,7 @@ var DOMChildrenOperations = {
 module.exports = DOMChildrenOperations;
 
 }).call(this,require('_process'))
-},{"./Danger":24,"./ReactMultiChildUpdateTypes":77,"./getTextContentAccessor":133,"./invariant":138,"_process":8}],22:[function(require,module,exports){
+},{"./Danger":78,"./ReactMultiChildUpdateTypes":136,"./getTextContentAccessor":200,"./invariant":205,"_process":17}],76:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2014, Facebook, Inc.
@@ -6576,7 +12901,7 @@ var DOMProperty = {
 module.exports = DOMProperty;
 
 }).call(this,require('_process'))
-},{"./invariant":138,"_process":8}],23:[function(require,module,exports){
+},{"./invariant":205,"_process":17}],77:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2014, Facebook, Inc.
@@ -6773,7 +13098,7 @@ var DOMPropertyOperations = {
 module.exports = DOMPropertyOperations;
 
 }).call(this,require('_process'))
-},{"./DOMProperty":22,"./escapeTextForBrowser":121,"./memoizeStringOnly":147,"./warning":157,"_process":8}],24:[function(require,module,exports){
+},{"./DOMProperty":76,"./escapeTextForBrowser":188,"./memoizeStringOnly":214,"./warning":225,"_process":17}],78:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2014, Facebook, Inc.
@@ -6959,7 +13284,7 @@ var Danger = {
 module.exports = Danger;
 
 }).call(this,require('_process'))
-},{"./ExecutionEnvironment":33,"./createNodesFromMarkup":116,"./emptyFunction":119,"./getMarkupWrap":130,"./invariant":138,"_process":8}],25:[function(require,module,exports){
+},{"./ExecutionEnvironment":87,"./createNodesFromMarkup":182,"./emptyFunction":186,"./getMarkupWrap":197,"./invariant":205,"_process":17}],79:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -6999,7 +13324,7 @@ var DefaultEventPluginOrder = [
 
 module.exports = DefaultEventPluginOrder;
 
-},{"./keyOf":145}],26:[function(require,module,exports){
+},{"./keyOf":212}],80:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -7139,7 +13464,7 @@ var EnterLeaveEventPlugin = {
 
 module.exports = EnterLeaveEventPlugin;
 
-},{"./EventConstants":27,"./EventPropagators":32,"./ReactMount":75,"./SyntheticMouseEvent":103,"./keyOf":145}],27:[function(require,module,exports){
+},{"./EventConstants":81,"./EventPropagators":86,"./ReactMount":134,"./SyntheticMouseEvent":168,"./keyOf":212}],81:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -7211,7 +13536,7 @@ var EventConstants = {
 
 module.exports = EventConstants;
 
-},{"./keyMirror":144}],28:[function(require,module,exports){
+},{"./keyMirror":211}],82:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2014 Facebook, Inc.
@@ -7301,7 +13626,7 @@ var EventListener = {
 module.exports = EventListener;
 
 }).call(this,require('_process'))
-},{"./emptyFunction":119,"_process":8}],29:[function(require,module,exports){
+},{"./emptyFunction":186,"_process":17}],83:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2014, Facebook, Inc.
@@ -7577,7 +13902,7 @@ var EventPluginHub = {
 module.exports = EventPluginHub;
 
 }).call(this,require('_process'))
-},{"./EventPluginRegistry":30,"./EventPluginUtils":31,"./accumulateInto":109,"./forEachAccumulated":124,"./invariant":138,"_process":8}],30:[function(require,module,exports){
+},{"./EventPluginRegistry":84,"./EventPluginUtils":85,"./accumulateInto":174,"./forEachAccumulated":191,"./invariant":205,"_process":17}],84:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2014, Facebook, Inc.
@@ -7857,7 +14182,7 @@ var EventPluginRegistry = {
 module.exports = EventPluginRegistry;
 
 }).call(this,require('_process'))
-},{"./invariant":138,"_process":8}],31:[function(require,module,exports){
+},{"./invariant":205,"_process":17}],85:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2014, Facebook, Inc.
@@ -8078,7 +14403,7 @@ var EventPluginUtils = {
 module.exports = EventPluginUtils;
 
 }).call(this,require('_process'))
-},{"./EventConstants":27,"./invariant":138,"_process":8}],32:[function(require,module,exports){
+},{"./EventConstants":81,"./invariant":205,"_process":17}],86:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2014, Facebook, Inc.
@@ -8220,7 +14545,7 @@ var EventPropagators = {
 module.exports = EventPropagators;
 
 }).call(this,require('_process'))
-},{"./EventConstants":27,"./EventPluginHub":29,"./accumulateInto":109,"./forEachAccumulated":124,"_process":8}],33:[function(require,module,exports){
+},{"./EventConstants":81,"./EventPluginHub":83,"./accumulateInto":174,"./forEachAccumulated":191,"_process":17}],87:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -8265,7 +14590,7 @@ var ExecutionEnvironment = {
 
 module.exports = ExecutionEnvironment;
 
-},{}],34:[function(require,module,exports){
+},{}],88:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -8457,7 +14782,48 @@ var HTMLDOMPropertyConfig = {
 
 module.exports = HTMLDOMPropertyConfig;
 
-},{"./DOMProperty":22,"./ExecutionEnvironment":33}],35:[function(require,module,exports){
+},{"./DOMProperty":76,"./ExecutionEnvironment":87}],89:[function(require,module,exports){
+/**
+ * Copyright 2013-2014, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+ * @providesModule LinkedStateMixin
+ * @typechecks static-only
+ */
+
+"use strict";
+
+var ReactLink = require("./ReactLink");
+var ReactStateSetters = require("./ReactStateSetters");
+
+/**
+ * A simple mixin around ReactLink.forState().
+ */
+var LinkedStateMixin = {
+  /**
+   * Create a ReactLink that's linked to part of this component's state. The
+   * ReactLink will have the current value of this.state[key] and will call
+   * setState() when a change is requested.
+   *
+   * @param {string} key state key to update. Note: you may want to use keyOf()
+   * if you're using Google Closure Compiler advanced mode.
+   * @return {ReactLink} ReactLink instance linking to the state.
+   */
+  linkState: function(key) {
+    return new ReactLink(
+      this.state[key],
+      ReactStateSetters.createStateKeySetter(this, key)
+    );
+  }
+};
+
+module.exports = LinkedStateMixin;
+
+},{"./ReactLink":132,"./ReactStateSetters":149}],90:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2014, Facebook, Inc.
@@ -8613,7 +14979,7 @@ var LinkedValueUtils = {
 module.exports = LinkedValueUtils;
 
 }).call(this,require('_process'))
-},{"./ReactPropTypes":84,"./invariant":138,"_process":8}],36:[function(require,module,exports){
+},{"./ReactPropTypes":143,"./invariant":205,"_process":17}],91:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2014, Facebook, Inc.
@@ -8663,7 +15029,7 @@ var LocalEventTrapMixin = {
 module.exports = LocalEventTrapMixin;
 
 }).call(this,require('_process'))
-},{"./ReactBrowserEventEmitter":42,"./accumulateInto":109,"./forEachAccumulated":124,"./invariant":138,"_process":8}],37:[function(require,module,exports){
+},{"./ReactBrowserEventEmitter":97,"./accumulateInto":174,"./forEachAccumulated":191,"./invariant":205,"_process":17}],92:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -8721,7 +15087,7 @@ var MobileSafariClickEventPlugin = {
 
 module.exports = MobileSafariClickEventPlugin;
 
-},{"./EventConstants":27,"./emptyFunction":119}],38:[function(require,module,exports){
+},{"./EventConstants":81,"./emptyFunction":186}],93:[function(require,module,exports){
 /**
  * Copyright 2014, Facebook, Inc.
  * All rights reserved.
@@ -8768,7 +15134,7 @@ function assign(target, sources) {
 
 module.exports = assign;
 
-},{}],39:[function(require,module,exports){
+},{}],94:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2014, Facebook, Inc.
@@ -8884,7 +15250,7 @@ var PooledClass = {
 module.exports = PooledClass;
 
 }).call(this,require('_process'))
-},{"./invariant":138,"_process":8}],40:[function(require,module,exports){
+},{"./invariant":205,"_process":17}],95:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2014, Facebook, Inc.
@@ -9072,7 +15438,7 @@ React.version = '0.12.2';
 module.exports = React;
 
 }).call(this,require('_process'))
-},{"./DOMPropertyOperations":23,"./EventPluginUtils":31,"./ExecutionEnvironment":33,"./Object.assign":38,"./ReactChildren":43,"./ReactComponent":44,"./ReactCompositeComponent":46,"./ReactContext":47,"./ReactCurrentOwner":48,"./ReactDOM":49,"./ReactDOMComponent":51,"./ReactDefaultInjection":61,"./ReactElement":64,"./ReactElementValidator":65,"./ReactInstanceHandles":72,"./ReactLegacyElement":73,"./ReactMount":75,"./ReactMultiChild":76,"./ReactPerf":80,"./ReactPropTypes":84,"./ReactServerRendering":88,"./ReactTextComponent":90,"./deprecated":118,"./onlyChild":149,"_process":8}],41:[function(require,module,exports){
+},{"./DOMPropertyOperations":77,"./EventPluginUtils":85,"./ExecutionEnvironment":87,"./Object.assign":93,"./ReactChildren":100,"./ReactComponent":101,"./ReactCompositeComponent":104,"./ReactContext":105,"./ReactCurrentOwner":106,"./ReactDOM":107,"./ReactDOMComponent":109,"./ReactDefaultInjection":119,"./ReactElement":122,"./ReactElementValidator":123,"./ReactInstanceHandles":130,"./ReactLegacyElement":131,"./ReactMount":134,"./ReactMultiChild":135,"./ReactPerf":139,"./ReactPropTypes":143,"./ReactServerRendering":147,"./ReactTextComponent":151,"./deprecated":185,"./onlyChild":216,"_process":17}],96:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2014, Facebook, Inc.
@@ -9115,7 +15481,7 @@ var ReactBrowserComponentMixin = {
 module.exports = ReactBrowserComponentMixin;
 
 }).call(this,require('_process'))
-},{"./ReactEmptyComponent":66,"./ReactMount":75,"./invariant":138,"_process":8}],42:[function(require,module,exports){
+},{"./ReactEmptyComponent":124,"./ReactMount":134,"./invariant":205,"_process":17}],97:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -9470,7 +15836,209 @@ var ReactBrowserEventEmitter = assign({}, ReactEventEmitterMixin, {
 
 module.exports = ReactBrowserEventEmitter;
 
-},{"./EventConstants":27,"./EventPluginHub":29,"./EventPluginRegistry":30,"./Object.assign":38,"./ReactEventEmitterMixin":68,"./ViewportMetrics":108,"./isEventSupported":139}],43:[function(require,module,exports){
+},{"./EventConstants":81,"./EventPluginHub":83,"./EventPluginRegistry":84,"./Object.assign":93,"./ReactEventEmitterMixin":126,"./ViewportMetrics":173,"./isEventSupported":206}],98:[function(require,module,exports){
+/**
+ * Copyright 2013-2014, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+ * @typechecks
+ * @providesModule ReactCSSTransitionGroup
+ */
+
+"use strict";
+
+var React = require("./React");
+
+var assign = require("./Object.assign");
+
+var ReactTransitionGroup = React.createFactory(
+  require("./ReactTransitionGroup")
+);
+var ReactCSSTransitionGroupChild = React.createFactory(
+  require("./ReactCSSTransitionGroupChild")
+);
+
+var ReactCSSTransitionGroup = React.createClass({
+  displayName: 'ReactCSSTransitionGroup',
+
+  propTypes: {
+    transitionName: React.PropTypes.string.isRequired,
+    transitionEnter: React.PropTypes.bool,
+    transitionLeave: React.PropTypes.bool
+  },
+
+  getDefaultProps: function() {
+    return {
+      transitionEnter: true,
+      transitionLeave: true
+    };
+  },
+
+  _wrapChild: function(child) {
+    // We need to provide this childFactory so that
+    // ReactCSSTransitionGroupChild can receive updates to name, enter, and
+    // leave while it is leaving.
+    return ReactCSSTransitionGroupChild(
+      {
+        name: this.props.transitionName,
+        enter: this.props.transitionEnter,
+        leave: this.props.transitionLeave
+      },
+      child
+    );
+  },
+
+  render: function() {
+    return (
+      ReactTransitionGroup(
+        assign({}, this.props, {childFactory: this._wrapChild})
+      )
+    );
+  }
+});
+
+module.exports = ReactCSSTransitionGroup;
+
+},{"./Object.assign":93,"./React":95,"./ReactCSSTransitionGroupChild":99,"./ReactTransitionGroup":154}],99:[function(require,module,exports){
+(function (process){
+/**
+ * Copyright 2013-2014, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+ * @typechecks
+ * @providesModule ReactCSSTransitionGroupChild
+ */
+
+"use strict";
+
+var React = require("./React");
+
+var CSSCore = require("./CSSCore");
+var ReactTransitionEvents = require("./ReactTransitionEvents");
+
+var onlyChild = require("./onlyChild");
+
+// We don't remove the element from the DOM until we receive an animationend or
+// transitionend event. If the user screws up and forgets to add an animation
+// their node will be stuck in the DOM forever, so we detect if an animation
+// does not start and if it doesn't, we just call the end listener immediately.
+var TICK = 17;
+var NO_EVENT_TIMEOUT = 5000;
+
+var noEventListener = null;
+
+
+if ("production" !== process.env.NODE_ENV) {
+  noEventListener = function() {
+    console.warn(
+      'transition(): tried to perform an animation without ' +
+      'an animationend or transitionend event after timeout (' +
+      NO_EVENT_TIMEOUT + 'ms). You should either disable this ' +
+      'transition in JS or add a CSS animation/transition.'
+    );
+  };
+}
+
+var ReactCSSTransitionGroupChild = React.createClass({
+  displayName: 'ReactCSSTransitionGroupChild',
+
+  transition: function(animationType, finishCallback) {
+    var node = this.getDOMNode();
+    var className = this.props.name + '-' + animationType;
+    var activeClassName = className + '-active';
+    var noEventTimeout = null;
+
+    var endListener = function(e) {
+      if (e && e.target !== node) {
+        return;
+      }
+      if ("production" !== process.env.NODE_ENV) {
+        clearTimeout(noEventTimeout);
+      }
+
+      CSSCore.removeClass(node, className);
+      CSSCore.removeClass(node, activeClassName);
+
+      ReactTransitionEvents.removeEndEventListener(node, endListener);
+
+      // Usually this optional callback is used for informing an owner of
+      // a leave animation and telling it to remove the child.
+      finishCallback && finishCallback();
+    };
+
+    ReactTransitionEvents.addEndEventListener(node, endListener);
+
+    CSSCore.addClass(node, className);
+
+    // Need to do this to actually trigger a transition.
+    this.queueClass(activeClassName);
+
+    if ("production" !== process.env.NODE_ENV) {
+      noEventTimeout = setTimeout(noEventListener, NO_EVENT_TIMEOUT);
+    }
+  },
+
+  queueClass: function(className) {
+    this.classNameQueue.push(className);
+
+    if (!this.timeout) {
+      this.timeout = setTimeout(this.flushClassNameQueue, TICK);
+    }
+  },
+
+  flushClassNameQueue: function() {
+    if (this.isMounted()) {
+      this.classNameQueue.forEach(
+        CSSCore.addClass.bind(CSSCore, this.getDOMNode())
+      );
+    }
+    this.classNameQueue.length = 0;
+    this.timeout = null;
+  },
+
+  componentWillMount: function() {
+    this.classNameQueue = [];
+  },
+
+  componentWillUnmount: function() {
+    if (this.timeout) {
+      clearTimeout(this.timeout);
+    }
+  },
+
+  componentWillEnter: function(done) {
+    if (this.props.enter) {
+      this.transition('enter', done);
+    } else {
+      done();
+    }
+  },
+
+  componentWillLeave: function(done) {
+    if (this.props.leave) {
+      this.transition('leave', done);
+    } else {
+      done();
+    }
+  },
+
+  render: function() {
+    return onlyChild(this.props.children);
+  }
+});
+
+module.exports = ReactCSSTransitionGroupChild;
+
+}).call(this,require('_process'))
+},{"./CSSCore":68,"./React":95,"./ReactTransitionEvents":153,"./onlyChild":216,"_process":17}],100:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2014, Facebook, Inc.
@@ -9620,7 +16188,7 @@ var ReactChildren = {
 module.exports = ReactChildren;
 
 }).call(this,require('_process'))
-},{"./PooledClass":39,"./traverseAllChildren":156,"./warning":157,"_process":8}],44:[function(require,module,exports){
+},{"./PooledClass":94,"./traverseAllChildren":223,"./warning":225,"_process":17}],101:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2014, Facebook, Inc.
@@ -10063,7 +16631,7 @@ var ReactComponent = {
 module.exports = ReactComponent;
 
 }).call(this,require('_process'))
-},{"./Object.assign":38,"./ReactElement":64,"./ReactOwner":79,"./ReactUpdates":91,"./invariant":138,"./keyMirror":144,"_process":8}],45:[function(require,module,exports){
+},{"./Object.assign":93,"./ReactElement":122,"./ReactOwner":138,"./ReactUpdates":155,"./invariant":205,"./keyMirror":211,"_process":17}],102:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2014, Facebook, Inc.
@@ -10185,7 +16753,56 @@ var ReactComponentBrowserEnvironment = {
 module.exports = ReactComponentBrowserEnvironment;
 
 }).call(this,require('_process'))
-},{"./ReactDOMIDOperations":53,"./ReactMarkupChecksum":74,"./ReactMount":75,"./ReactPerf":80,"./ReactReconcileTransaction":86,"./getReactRootElementInContainer":132,"./invariant":138,"./setInnerHTML":152,"_process":8}],46:[function(require,module,exports){
+},{"./ReactDOMIDOperations":111,"./ReactMarkupChecksum":133,"./ReactMount":134,"./ReactPerf":139,"./ReactReconcileTransaction":145,"./getReactRootElementInContainer":199,"./invariant":205,"./setInnerHTML":219,"_process":17}],103:[function(require,module,exports){
+/**
+ * Copyright 2013-2014, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+* @providesModule ReactComponentWithPureRenderMixin
+*/
+
+"use strict";
+
+var shallowEqual = require("./shallowEqual");
+
+/**
+ * If your React component's render function is "pure", e.g. it will render the
+ * same result given the same props and state, provide this Mixin for a
+ * considerable performance boost.
+ *
+ * Most React components have pure render functions.
+ *
+ * Example:
+ *
+ *   var ReactComponentWithPureRenderMixin =
+ *     require('ReactComponentWithPureRenderMixin');
+ *   React.createClass({
+ *     mixins: [ReactComponentWithPureRenderMixin],
+ *
+ *     render: function() {
+ *       return <div className={this.props.className}>foo</div>;
+ *     }
+ *   });
+ *
+ * Note: This only checks shallow equality for props and state. If these contain
+ * complex data structures this mixin may have false-negatives for deeper
+ * differences. Only mixin to components which have simple props and state, or
+ * use `forceUpdate()` when you know deep data structures have changed.
+ */
+var ReactComponentWithPureRenderMixin = {
+  shouldComponentUpdate: function(nextProps, nextState) {
+    return !shallowEqual(this.props, nextProps) ||
+           !shallowEqual(this.state, nextState);
+  }
+};
+
+module.exports = ReactComponentWithPureRenderMixin;
+
+},{"./shallowEqual":220}],104:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2014, Facebook, Inc.
@@ -11625,7 +18242,7 @@ var ReactCompositeComponent = {
 module.exports = ReactCompositeComponent;
 
 }).call(this,require('_process'))
-},{"./Object.assign":38,"./ReactComponent":44,"./ReactContext":47,"./ReactCurrentOwner":48,"./ReactElement":64,"./ReactElementValidator":65,"./ReactEmptyComponent":66,"./ReactErrorUtils":67,"./ReactLegacyElement":73,"./ReactOwner":79,"./ReactPerf":80,"./ReactPropTransferer":81,"./ReactPropTypeLocationNames":82,"./ReactPropTypeLocations":83,"./ReactUpdates":91,"./instantiateReactComponent":137,"./invariant":138,"./keyMirror":144,"./keyOf":145,"./mapObject":146,"./monitorCodeUse":148,"./shouldUpdateReactComponent":154,"./warning":157,"_process":8}],47:[function(require,module,exports){
+},{"./Object.assign":93,"./ReactComponent":101,"./ReactContext":105,"./ReactCurrentOwner":106,"./ReactElement":122,"./ReactElementValidator":123,"./ReactEmptyComponent":124,"./ReactErrorUtils":125,"./ReactLegacyElement":131,"./ReactOwner":138,"./ReactPerf":139,"./ReactPropTransferer":140,"./ReactPropTypeLocationNames":141,"./ReactPropTypeLocations":142,"./ReactUpdates":155,"./instantiateReactComponent":204,"./invariant":205,"./keyMirror":211,"./keyOf":212,"./mapObject":213,"./monitorCodeUse":215,"./shouldUpdateReactComponent":221,"./warning":225,"_process":17}],105:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -11687,7 +18304,7 @@ var ReactContext = {
 
 module.exports = ReactContext;
 
-},{"./Object.assign":38}],48:[function(require,module,exports){
+},{"./Object.assign":93}],106:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -11721,7 +18338,7 @@ var ReactCurrentOwner = {
 
 module.exports = ReactCurrentOwner;
 
-},{}],49:[function(require,module,exports){
+},{}],107:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2014, Facebook, Inc.
@@ -11904,7 +18521,7 @@ var ReactDOM = mapObject({
 module.exports = ReactDOM;
 
 }).call(this,require('_process'))
-},{"./ReactElement":64,"./ReactElementValidator":65,"./ReactLegacyElement":73,"./mapObject":146,"_process":8}],50:[function(require,module,exports){
+},{"./ReactElement":122,"./ReactElementValidator":123,"./ReactLegacyElement":131,"./mapObject":213,"_process":17}],108:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -11969,7 +18586,7 @@ var ReactDOMButton = ReactCompositeComponent.createClass({
 
 module.exports = ReactDOMButton;
 
-},{"./AutoFocusMixin":13,"./ReactBrowserComponentMixin":41,"./ReactCompositeComponent":46,"./ReactDOM":49,"./ReactElement":64,"./keyMirror":144}],51:[function(require,module,exports){
+},{"./AutoFocusMixin":66,"./ReactBrowserComponentMixin":96,"./ReactCompositeComponent":104,"./ReactDOM":107,"./ReactElement":122,"./keyMirror":211}],109:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2014, Facebook, Inc.
@@ -12456,7 +19073,7 @@ assign(
 module.exports = ReactDOMComponent;
 
 }).call(this,require('_process'))
-},{"./CSSPropertyOperations":16,"./DOMProperty":22,"./DOMPropertyOperations":23,"./Object.assign":38,"./ReactBrowserComponentMixin":41,"./ReactBrowserEventEmitter":42,"./ReactComponent":44,"./ReactMount":75,"./ReactMultiChild":76,"./ReactPerf":80,"./escapeTextForBrowser":121,"./invariant":138,"./isEventSupported":139,"./keyOf":145,"./monitorCodeUse":148,"_process":8}],52:[function(require,module,exports){
+},{"./CSSPropertyOperations":70,"./DOMProperty":76,"./DOMPropertyOperations":77,"./Object.assign":93,"./ReactBrowserComponentMixin":96,"./ReactBrowserEventEmitter":97,"./ReactComponent":101,"./ReactMount":134,"./ReactMultiChild":135,"./ReactPerf":139,"./escapeTextForBrowser":188,"./invariant":205,"./isEventSupported":206,"./keyOf":212,"./monitorCodeUse":215,"_process":17}],110:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -12506,7 +19123,7 @@ var ReactDOMForm = ReactCompositeComponent.createClass({
 
 module.exports = ReactDOMForm;
 
-},{"./EventConstants":27,"./LocalEventTrapMixin":36,"./ReactBrowserComponentMixin":41,"./ReactCompositeComponent":46,"./ReactDOM":49,"./ReactElement":64}],53:[function(require,module,exports){
+},{"./EventConstants":81,"./LocalEventTrapMixin":91,"./ReactBrowserComponentMixin":96,"./ReactCompositeComponent":104,"./ReactDOM":107,"./ReactElement":122}],111:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2014, Facebook, Inc.
@@ -12692,7 +19309,7 @@ var ReactDOMIDOperations = {
 module.exports = ReactDOMIDOperations;
 
 }).call(this,require('_process'))
-},{"./CSSPropertyOperations":16,"./DOMChildrenOperations":21,"./DOMPropertyOperations":23,"./ReactMount":75,"./ReactPerf":80,"./invariant":138,"./setInnerHTML":152,"_process":8}],54:[function(require,module,exports){
+},{"./CSSPropertyOperations":70,"./DOMChildrenOperations":75,"./DOMPropertyOperations":77,"./ReactMount":134,"./ReactPerf":139,"./invariant":205,"./setInnerHTML":219,"_process":17}],112:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -12740,7 +19357,7 @@ var ReactDOMImg = ReactCompositeComponent.createClass({
 
 module.exports = ReactDOMImg;
 
-},{"./EventConstants":27,"./LocalEventTrapMixin":36,"./ReactBrowserComponentMixin":41,"./ReactCompositeComponent":46,"./ReactDOM":49,"./ReactElement":64}],55:[function(require,module,exports){
+},{"./EventConstants":81,"./LocalEventTrapMixin":91,"./ReactBrowserComponentMixin":96,"./ReactCompositeComponent":104,"./ReactDOM":107,"./ReactElement":122}],113:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2014, Facebook, Inc.
@@ -12918,7 +19535,7 @@ var ReactDOMInput = ReactCompositeComponent.createClass({
 module.exports = ReactDOMInput;
 
 }).call(this,require('_process'))
-},{"./AutoFocusMixin":13,"./DOMPropertyOperations":23,"./LinkedValueUtils":35,"./Object.assign":38,"./ReactBrowserComponentMixin":41,"./ReactCompositeComponent":46,"./ReactDOM":49,"./ReactElement":64,"./ReactMount":75,"./ReactUpdates":91,"./invariant":138,"_process":8}],56:[function(require,module,exports){
+},{"./AutoFocusMixin":66,"./DOMPropertyOperations":77,"./LinkedValueUtils":90,"./Object.assign":93,"./ReactBrowserComponentMixin":96,"./ReactCompositeComponent":104,"./ReactDOM":107,"./ReactElement":122,"./ReactMount":134,"./ReactUpdates":155,"./invariant":205,"_process":17}],114:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2014, Facebook, Inc.
@@ -12971,7 +19588,7 @@ var ReactDOMOption = ReactCompositeComponent.createClass({
 module.exports = ReactDOMOption;
 
 }).call(this,require('_process'))
-},{"./ReactBrowserComponentMixin":41,"./ReactCompositeComponent":46,"./ReactDOM":49,"./ReactElement":64,"./warning":157,"_process":8}],57:[function(require,module,exports){
+},{"./ReactBrowserComponentMixin":96,"./ReactCompositeComponent":104,"./ReactDOM":107,"./ReactElement":122,"./warning":225,"_process":17}],115:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -13155,7 +19772,7 @@ var ReactDOMSelect = ReactCompositeComponent.createClass({
 
 module.exports = ReactDOMSelect;
 
-},{"./AutoFocusMixin":13,"./LinkedValueUtils":35,"./Object.assign":38,"./ReactBrowserComponentMixin":41,"./ReactCompositeComponent":46,"./ReactDOM":49,"./ReactElement":64,"./ReactUpdates":91}],58:[function(require,module,exports){
+},{"./AutoFocusMixin":66,"./LinkedValueUtils":90,"./Object.assign":93,"./ReactBrowserComponentMixin":96,"./ReactCompositeComponent":104,"./ReactDOM":107,"./ReactElement":122,"./ReactUpdates":155}],116:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -13364,7 +19981,7 @@ var ReactDOMSelection = {
 
 module.exports = ReactDOMSelection;
 
-},{"./ExecutionEnvironment":33,"./getNodeForCharacterOffset":131,"./getTextContentAccessor":133}],59:[function(require,module,exports){
+},{"./ExecutionEnvironment":87,"./getNodeForCharacterOffset":198,"./getTextContentAccessor":200}],117:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2014, Facebook, Inc.
@@ -13505,7 +20122,7 @@ var ReactDOMTextarea = ReactCompositeComponent.createClass({
 module.exports = ReactDOMTextarea;
 
 }).call(this,require('_process'))
-},{"./AutoFocusMixin":13,"./DOMPropertyOperations":23,"./LinkedValueUtils":35,"./Object.assign":38,"./ReactBrowserComponentMixin":41,"./ReactCompositeComponent":46,"./ReactDOM":49,"./ReactElement":64,"./ReactUpdates":91,"./invariant":138,"./warning":157,"_process":8}],60:[function(require,module,exports){
+},{"./AutoFocusMixin":66,"./DOMPropertyOperations":77,"./LinkedValueUtils":90,"./Object.assign":93,"./ReactBrowserComponentMixin":96,"./ReactCompositeComponent":104,"./ReactDOM":107,"./ReactElement":122,"./ReactUpdates":155,"./invariant":205,"./warning":225,"_process":17}],118:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -13578,7 +20195,7 @@ var ReactDefaultBatchingStrategy = {
 
 module.exports = ReactDefaultBatchingStrategy;
 
-},{"./Object.assign":38,"./ReactUpdates":91,"./Transaction":107,"./emptyFunction":119}],61:[function(require,module,exports){
+},{"./Object.assign":93,"./ReactUpdates":155,"./Transaction":172,"./emptyFunction":186}],119:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2014, Facebook, Inc.
@@ -13707,7 +20324,7 @@ module.exports = {
 };
 
 }).call(this,require('_process'))
-},{"./BeforeInputEventPlugin":14,"./ChangeEventPlugin":18,"./ClientReactRootIndex":19,"./CompositionEventPlugin":20,"./DefaultEventPluginOrder":25,"./EnterLeaveEventPlugin":26,"./ExecutionEnvironment":33,"./HTMLDOMPropertyConfig":34,"./MobileSafariClickEventPlugin":37,"./ReactBrowserComponentMixin":41,"./ReactComponentBrowserEnvironment":45,"./ReactDOMButton":50,"./ReactDOMComponent":51,"./ReactDOMForm":52,"./ReactDOMImg":54,"./ReactDOMInput":55,"./ReactDOMOption":56,"./ReactDOMSelect":57,"./ReactDOMTextarea":59,"./ReactDefaultBatchingStrategy":60,"./ReactDefaultPerf":62,"./ReactEventListener":69,"./ReactInjection":70,"./ReactInstanceHandles":72,"./ReactMount":75,"./SVGDOMPropertyConfig":92,"./SelectEventPlugin":93,"./ServerReactRootIndex":94,"./SimpleEventPlugin":95,"./createFullPageComponent":115,"_process":8}],62:[function(require,module,exports){
+},{"./BeforeInputEventPlugin":67,"./ChangeEventPlugin":72,"./ClientReactRootIndex":73,"./CompositionEventPlugin":74,"./DefaultEventPluginOrder":79,"./EnterLeaveEventPlugin":80,"./ExecutionEnvironment":87,"./HTMLDOMPropertyConfig":88,"./MobileSafariClickEventPlugin":92,"./ReactBrowserComponentMixin":96,"./ReactComponentBrowserEnvironment":102,"./ReactDOMButton":108,"./ReactDOMComponent":109,"./ReactDOMForm":110,"./ReactDOMImg":112,"./ReactDOMInput":113,"./ReactDOMOption":114,"./ReactDOMSelect":115,"./ReactDOMTextarea":117,"./ReactDefaultBatchingStrategy":118,"./ReactDefaultPerf":120,"./ReactEventListener":127,"./ReactInjection":128,"./ReactInstanceHandles":130,"./ReactMount":134,"./SVGDOMPropertyConfig":157,"./SelectEventPlugin":158,"./ServerReactRootIndex":159,"./SimpleEventPlugin":160,"./createFullPageComponent":181,"_process":17}],120:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -13967,7 +20584,7 @@ var ReactDefaultPerf = {
 
 module.exports = ReactDefaultPerf;
 
-},{"./DOMProperty":22,"./ReactDefaultPerfAnalysis":63,"./ReactMount":75,"./ReactPerf":80,"./performanceNow":151}],63:[function(require,module,exports){
+},{"./DOMProperty":76,"./ReactDefaultPerfAnalysis":121,"./ReactMount":134,"./ReactPerf":139,"./performanceNow":218}],121:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -14173,7 +20790,7 @@ var ReactDefaultPerfAnalysis = {
 
 module.exports = ReactDefaultPerfAnalysis;
 
-},{"./Object.assign":38}],64:[function(require,module,exports){
+},{"./Object.assign":93}],122:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2014, Facebook, Inc.
@@ -14419,7 +21036,7 @@ ReactElement.isValidElement = function(object) {
 module.exports = ReactElement;
 
 }).call(this,require('_process'))
-},{"./ReactContext":47,"./ReactCurrentOwner":48,"./warning":157,"_process":8}],65:[function(require,module,exports){
+},{"./ReactContext":105,"./ReactCurrentOwner":106,"./warning":225,"_process":17}],123:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2014, Facebook, Inc.
@@ -14701,7 +21318,7 @@ var ReactElementValidator = {
 module.exports = ReactElementValidator;
 
 }).call(this,require('_process'))
-},{"./ReactCurrentOwner":48,"./ReactElement":64,"./ReactPropTypeLocations":83,"./monitorCodeUse":148,"./warning":157,"_process":8}],66:[function(require,module,exports){
+},{"./ReactCurrentOwner":106,"./ReactElement":122,"./ReactPropTypeLocations":142,"./monitorCodeUse":215,"./warning":225,"_process":17}],124:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2014, Facebook, Inc.
@@ -14778,7 +21395,7 @@ var ReactEmptyComponent = {
 module.exports = ReactEmptyComponent;
 
 }).call(this,require('_process'))
-},{"./ReactElement":64,"./invariant":138,"_process":8}],67:[function(require,module,exports){
+},{"./ReactElement":122,"./invariant":205,"_process":17}],125:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -14810,7 +21427,7 @@ var ReactErrorUtils = {
 
 module.exports = ReactErrorUtils;
 
-},{}],68:[function(require,module,exports){
+},{}],126:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -14860,7 +21477,7 @@ var ReactEventEmitterMixin = {
 
 module.exports = ReactEventEmitterMixin;
 
-},{"./EventPluginHub":29}],69:[function(require,module,exports){
+},{"./EventPluginHub":83}],127:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -15044,7 +21661,7 @@ var ReactEventListener = {
 
 module.exports = ReactEventListener;
 
-},{"./EventListener":28,"./ExecutionEnvironment":33,"./Object.assign":38,"./PooledClass":39,"./ReactInstanceHandles":72,"./ReactMount":75,"./ReactUpdates":91,"./getEventTarget":129,"./getUnboundedScrollPosition":134}],70:[function(require,module,exports){
+},{"./EventListener":82,"./ExecutionEnvironment":87,"./Object.assign":93,"./PooledClass":94,"./ReactInstanceHandles":130,"./ReactMount":134,"./ReactUpdates":155,"./getEventTarget":196,"./getUnboundedScrollPosition":201}],128:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -15084,7 +21701,7 @@ var ReactInjection = {
 
 module.exports = ReactInjection;
 
-},{"./DOMProperty":22,"./EventPluginHub":29,"./ReactBrowserEventEmitter":42,"./ReactComponent":44,"./ReactCompositeComponent":46,"./ReactEmptyComponent":66,"./ReactNativeComponent":78,"./ReactPerf":80,"./ReactRootIndex":87,"./ReactUpdates":91}],71:[function(require,module,exports){
+},{"./DOMProperty":76,"./EventPluginHub":83,"./ReactBrowserEventEmitter":97,"./ReactComponent":101,"./ReactCompositeComponent":104,"./ReactEmptyComponent":124,"./ReactNativeComponent":137,"./ReactPerf":139,"./ReactRootIndex":146,"./ReactUpdates":155}],129:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -15220,7 +21837,7 @@ var ReactInputSelection = {
 
 module.exports = ReactInputSelection;
 
-},{"./ReactDOMSelection":58,"./containsNode":113,"./focusNode":123,"./getActiveElement":125}],72:[function(require,module,exports){
+},{"./ReactDOMSelection":116,"./containsNode":179,"./focusNode":190,"./getActiveElement":192}],130:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2014, Facebook, Inc.
@@ -15555,7 +22172,7 @@ var ReactInstanceHandles = {
 module.exports = ReactInstanceHandles;
 
 }).call(this,require('_process'))
-},{"./ReactRootIndex":87,"./invariant":138,"_process":8}],73:[function(require,module,exports){
+},{"./ReactRootIndex":146,"./invariant":205,"_process":17}],131:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2014, Facebook, Inc.
@@ -15802,7 +22419,80 @@ ReactLegacyElementFactory._isLegacyCallWarningEnabled = true;
 module.exports = ReactLegacyElementFactory;
 
 }).call(this,require('_process'))
-},{"./ReactCurrentOwner":48,"./invariant":138,"./monitorCodeUse":148,"./warning":157,"_process":8}],74:[function(require,module,exports){
+},{"./ReactCurrentOwner":106,"./invariant":205,"./monitorCodeUse":215,"./warning":225,"_process":17}],132:[function(require,module,exports){
+/**
+ * Copyright 2013-2014, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+ * @providesModule ReactLink
+ * @typechecks static-only
+ */
+
+"use strict";
+
+/**
+ * ReactLink encapsulates a common pattern in which a component wants to modify
+ * a prop received from its parent. ReactLink allows the parent to pass down a
+ * value coupled with a callback that, when invoked, expresses an intent to
+ * modify that value. For example:
+ *
+ * React.createClass({
+ *   getInitialState: function() {
+ *     return {value: ''};
+ *   },
+ *   render: function() {
+ *     var valueLink = new ReactLink(this.state.value, this._handleValueChange);
+ *     return <input valueLink={valueLink} />;
+ *   },
+ *   this._handleValueChange: function(newValue) {
+ *     this.setState({value: newValue});
+ *   }
+ * });
+ *
+ * We have provided some sugary mixins to make the creation and
+ * consumption of ReactLink easier; see LinkedValueUtils and LinkedStateMixin.
+ */
+
+var React = require("./React");
+
+/**
+ * @param {*} value current value of the link
+ * @param {function} requestChange callback to request a change
+ */
+function ReactLink(value, requestChange) {
+  this.value = value;
+  this.requestChange = requestChange;
+}
+
+/**
+ * Creates a PropType that enforces the ReactLink API and optionally checks the
+ * type of the value being passed inside the link. Example:
+ *
+ * MyComponent.propTypes = {
+ *   tabIndexLink: ReactLink.PropTypes.link(React.PropTypes.number)
+ * }
+ */
+function createLinkTypeChecker(linkType) {
+  var shapes = {
+    value: typeof linkType === 'undefined' ?
+      React.PropTypes.any.isRequired :
+      linkType.isRequired,
+    requestChange: React.PropTypes.func.isRequired
+  };
+  return React.PropTypes.shape(shapes);
+}
+
+ReactLink.PropTypes = {
+  link: createLinkTypeChecker
+};
+
+module.exports = ReactLink;
+
+},{"./React":95}],133:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -15850,7 +22540,7 @@ var ReactMarkupChecksum = {
 
 module.exports = ReactMarkupChecksum;
 
-},{"./adler32":110}],75:[function(require,module,exports){
+},{"./adler32":175}],134:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2014, Facebook, Inc.
@@ -16548,7 +23238,7 @@ ReactMount.renderComponent = deprecated(
 module.exports = ReactMount;
 
 }).call(this,require('_process'))
-},{"./DOMProperty":22,"./ReactBrowserEventEmitter":42,"./ReactCurrentOwner":48,"./ReactElement":64,"./ReactInstanceHandles":72,"./ReactLegacyElement":73,"./ReactPerf":80,"./containsNode":113,"./deprecated":118,"./getReactRootElementInContainer":132,"./instantiateReactComponent":137,"./invariant":138,"./shouldUpdateReactComponent":154,"./warning":157,"_process":8}],76:[function(require,module,exports){
+},{"./DOMProperty":76,"./ReactBrowserEventEmitter":97,"./ReactCurrentOwner":106,"./ReactElement":122,"./ReactInstanceHandles":130,"./ReactLegacyElement":131,"./ReactPerf":139,"./containsNode":179,"./deprecated":185,"./getReactRootElementInContainer":199,"./instantiateReactComponent":204,"./invariant":205,"./shouldUpdateReactComponent":221,"./warning":225,"_process":17}],135:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -16976,7 +23666,7 @@ var ReactMultiChild = {
 
 module.exports = ReactMultiChild;
 
-},{"./ReactComponent":44,"./ReactMultiChildUpdateTypes":77,"./flattenChildren":122,"./instantiateReactComponent":137,"./shouldUpdateReactComponent":154}],77:[function(require,module,exports){
+},{"./ReactComponent":101,"./ReactMultiChildUpdateTypes":136,"./flattenChildren":189,"./instantiateReactComponent":204,"./shouldUpdateReactComponent":221}],136:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -17009,7 +23699,7 @@ var ReactMultiChildUpdateTypes = keyMirror({
 
 module.exports = ReactMultiChildUpdateTypes;
 
-},{"./keyMirror":144}],78:[function(require,module,exports){
+},{"./keyMirror":211}],137:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2014, Facebook, Inc.
@@ -17082,7 +23772,7 @@ var ReactNativeComponent = {
 module.exports = ReactNativeComponent;
 
 }).call(this,require('_process'))
-},{"./Object.assign":38,"./invariant":138,"_process":8}],79:[function(require,module,exports){
+},{"./Object.assign":93,"./invariant":205,"_process":17}],138:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2014, Facebook, Inc.
@@ -17238,7 +23928,7 @@ var ReactOwner = {
 module.exports = ReactOwner;
 
 }).call(this,require('_process'))
-},{"./emptyObject":120,"./invariant":138,"_process":8}],80:[function(require,module,exports){
+},{"./emptyObject":187,"./invariant":205,"_process":17}],139:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2014, Facebook, Inc.
@@ -17322,7 +24012,7 @@ function _noMeasure(objName, fnName, func) {
 module.exports = ReactPerf;
 
 }).call(this,require('_process'))
-},{"_process":8}],81:[function(require,module,exports){
+},{"_process":17}],140:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2014, Facebook, Inc.
@@ -17489,7 +24179,7 @@ var ReactPropTransferer = {
 module.exports = ReactPropTransferer;
 
 }).call(this,require('_process'))
-},{"./Object.assign":38,"./emptyFunction":119,"./invariant":138,"./joinClasses":143,"./warning":157,"_process":8}],82:[function(require,module,exports){
+},{"./Object.assign":93,"./emptyFunction":186,"./invariant":205,"./joinClasses":210,"./warning":225,"_process":17}],141:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2014, Facebook, Inc.
@@ -17517,7 +24207,7 @@ if ("production" !== process.env.NODE_ENV) {
 module.exports = ReactPropTypeLocationNames;
 
 }).call(this,require('_process'))
-},{"_process":8}],83:[function(require,module,exports){
+},{"_process":17}],142:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -17541,7 +24231,7 @@ var ReactPropTypeLocations = keyMirror({
 
 module.exports = ReactPropTypeLocations;
 
-},{"./keyMirror":144}],84:[function(require,module,exports){
+},{"./keyMirror":211}],143:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -17895,7 +24585,7 @@ function getPreciseType(propValue) {
 
 module.exports = ReactPropTypes;
 
-},{"./ReactElement":64,"./ReactPropTypeLocationNames":82,"./deprecated":118,"./emptyFunction":119}],85:[function(require,module,exports){
+},{"./ReactElement":122,"./ReactPropTypeLocationNames":141,"./deprecated":185,"./emptyFunction":186}],144:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -17951,7 +24641,7 @@ PooledClass.addPoolingTo(ReactPutListenerQueue);
 
 module.exports = ReactPutListenerQueue;
 
-},{"./Object.assign":38,"./PooledClass":39,"./ReactBrowserEventEmitter":42}],86:[function(require,module,exports){
+},{"./Object.assign":93,"./PooledClass":94,"./ReactBrowserEventEmitter":97}],145:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -18127,7 +24817,7 @@ PooledClass.addPoolingTo(ReactReconcileTransaction);
 
 module.exports = ReactReconcileTransaction;
 
-},{"./CallbackQueue":17,"./Object.assign":38,"./PooledClass":39,"./ReactBrowserEventEmitter":42,"./ReactInputSelection":71,"./ReactPutListenerQueue":85,"./Transaction":107}],87:[function(require,module,exports){
+},{"./CallbackQueue":71,"./Object.assign":93,"./PooledClass":94,"./ReactBrowserEventEmitter":97,"./ReactInputSelection":129,"./ReactPutListenerQueue":144,"./Transaction":172}],146:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -18158,7 +24848,7 @@ var ReactRootIndex = {
 
 module.exports = ReactRootIndex;
 
-},{}],88:[function(require,module,exports){
+},{}],147:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2014, Facebook, Inc.
@@ -18238,7 +24928,7 @@ module.exports = {
 };
 
 }).call(this,require('_process'))
-},{"./ReactElement":64,"./ReactInstanceHandles":72,"./ReactMarkupChecksum":74,"./ReactServerRenderingTransaction":89,"./instantiateReactComponent":137,"./invariant":138,"_process":8}],89:[function(require,module,exports){
+},{"./ReactElement":122,"./ReactInstanceHandles":130,"./ReactMarkupChecksum":133,"./ReactServerRenderingTransaction":148,"./instantiateReactComponent":204,"./invariant":205,"_process":17}],148:[function(require,module,exports){
 /**
  * Copyright 2014, Facebook, Inc.
  * All rights reserved.
@@ -18351,7 +25041,525 @@ PooledClass.addPoolingTo(ReactServerRenderingTransaction);
 
 module.exports = ReactServerRenderingTransaction;
 
-},{"./CallbackQueue":17,"./Object.assign":38,"./PooledClass":39,"./ReactPutListenerQueue":85,"./Transaction":107,"./emptyFunction":119}],90:[function(require,module,exports){
+},{"./CallbackQueue":71,"./Object.assign":93,"./PooledClass":94,"./ReactPutListenerQueue":144,"./Transaction":172,"./emptyFunction":186}],149:[function(require,module,exports){
+/**
+ * Copyright 2013-2014, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+ * @providesModule ReactStateSetters
+ */
+
+"use strict";
+
+var ReactStateSetters = {
+  /**
+   * Returns a function that calls the provided function, and uses the result
+   * of that to set the component's state.
+   *
+   * @param {ReactCompositeComponent} component
+   * @param {function} funcReturningState Returned callback uses this to
+   *                                      determine how to update state.
+   * @return {function} callback that when invoked uses funcReturningState to
+   *                    determined the object literal to setState.
+   */
+  createStateSetter: function(component, funcReturningState) {
+    return function(a, b, c, d, e, f) {
+      var partialState = funcReturningState.call(component, a, b, c, d, e, f);
+      if (partialState) {
+        component.setState(partialState);
+      }
+    };
+  },
+
+  /**
+   * Returns a single-argument callback that can be used to update a single
+   * key in the component's state.
+   *
+   * Note: this is memoized function, which makes it inexpensive to call.
+   *
+   * @param {ReactCompositeComponent} component
+   * @param {string} key The key in the state that you should update.
+   * @return {function} callback of 1 argument which calls setState() with
+   *                    the provided keyName and callback argument.
+   */
+  createStateKeySetter: function(component, key) {
+    // Memoize the setters.
+    var cache = component.__keySetters || (component.__keySetters = {});
+    return cache[key] || (cache[key] = createStateKeySetter(component, key));
+  }
+};
+
+function createStateKeySetter(component, key) {
+  // Partial state is allocated outside of the function closure so it can be
+  // reused with every call, avoiding memory allocation when this function
+  // is called.
+  var partialState = {};
+  return function stateKeySetter(value) {
+    partialState[key] = value;
+    component.setState(partialState);
+  };
+}
+
+ReactStateSetters.Mixin = {
+  /**
+   * Returns a function that calls the provided function, and uses the result
+   * of that to set the component's state.
+   *
+   * For example, these statements are equivalent:
+   *
+   *   this.setState({x: 1});
+   *   this.createStateSetter(function(xValue) {
+   *     return {x: xValue};
+   *   })(1);
+   *
+   * @param {function} funcReturningState Returned callback uses this to
+   *                                      determine how to update state.
+   * @return {function} callback that when invoked uses funcReturningState to
+   *                    determined the object literal to setState.
+   */
+  createStateSetter: function(funcReturningState) {
+    return ReactStateSetters.createStateSetter(this, funcReturningState);
+  },
+
+  /**
+   * Returns a single-argument callback that can be used to update a single
+   * key in the component's state.
+   *
+   * For example, these statements are equivalent:
+   *
+   *   this.setState({x: 1});
+   *   this.createStateKeySetter('x')(1);
+   *
+   * Note: this is memoized function, which makes it inexpensive to call.
+   *
+   * @param {string} key The key in the state that you should update.
+   * @return {function} callback of 1 argument which calls setState() with
+   *                    the provided keyName and callback argument.
+   */
+  createStateKeySetter: function(key) {
+    return ReactStateSetters.createStateKeySetter(this, key);
+  }
+};
+
+module.exports = ReactStateSetters;
+
+},{}],150:[function(require,module,exports){
+/**
+ * Copyright 2013-2014, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+ * @providesModule ReactTestUtils
+ */
+
+"use strict";
+
+var EventConstants = require("./EventConstants");
+var EventPluginHub = require("./EventPluginHub");
+var EventPropagators = require("./EventPropagators");
+var React = require("./React");
+var ReactElement = require("./ReactElement");
+var ReactBrowserEventEmitter = require("./ReactBrowserEventEmitter");
+var ReactMount = require("./ReactMount");
+var ReactTextComponent = require("./ReactTextComponent");
+var ReactUpdates = require("./ReactUpdates");
+var SyntheticEvent = require("./SyntheticEvent");
+
+var assign = require("./Object.assign");
+
+var topLevelTypes = EventConstants.topLevelTypes;
+
+function Event(suffix) {}
+
+/**
+ * @class ReactTestUtils
+ */
+
+/**
+ * Todo: Support the entire DOM.scry query syntax. For now, these simple
+ * utilities will suffice for testing purposes.
+ * @lends ReactTestUtils
+ */
+var ReactTestUtils = {
+  renderIntoDocument: function(instance) {
+    var div = document.createElement('div');
+    // None of our tests actually require attaching the container to the
+    // DOM, and doing so creates a mess that we rely on test isolation to
+    // clean up, so we're going to stop honoring the name of this method
+    // (and probably rename it eventually) if no problems arise.
+    // document.documentElement.appendChild(div);
+    return React.render(instance, div);
+  },
+
+  isElement: function(element) {
+    return ReactElement.isValidElement(element);
+  },
+
+  isElementOfType: function(inst, convenienceConstructor) {
+    return (
+      ReactElement.isValidElement(inst) &&
+      inst.type === convenienceConstructor.type
+    );
+  },
+
+  isDOMComponent: function(inst) {
+    return !!(inst && inst.mountComponent && inst.tagName);
+  },
+
+  isDOMComponentElement: function(inst) {
+    return !!(inst &&
+              ReactElement.isValidElement(inst) &&
+              !!inst.tagName);
+  },
+
+  isCompositeComponent: function(inst) {
+    return typeof inst.render === 'function' &&
+           typeof inst.setState === 'function';
+  },
+
+  isCompositeComponentWithType: function(inst, type) {
+    return !!(ReactTestUtils.isCompositeComponent(inst) &&
+             (inst.constructor === type.type));
+  },
+
+  isCompositeComponentElement: function(inst) {
+    if (!ReactElement.isValidElement(inst)) {
+      return false;
+    }
+    // We check the prototype of the type that will get mounted, not the
+    // instance itself. This is a future proof way of duck typing.
+    var prototype = inst.type.prototype;
+    return (
+      typeof prototype.render === 'function' &&
+      typeof prototype.setState === 'function'
+    );
+  },
+
+  isCompositeComponentElementWithType: function(inst, type) {
+    return !!(ReactTestUtils.isCompositeComponentElement(inst) &&
+             (inst.constructor === type));
+  },
+
+  isTextComponent: function(inst) {
+    return inst instanceof ReactTextComponent.type;
+  },
+
+  findAllInRenderedTree: function(inst, test) {
+    if (!inst) {
+      return [];
+    }
+    var ret = test(inst) ? [inst] : [];
+    if (ReactTestUtils.isDOMComponent(inst)) {
+      var renderedChildren = inst._renderedChildren;
+      var key;
+      for (key in renderedChildren) {
+        if (!renderedChildren.hasOwnProperty(key)) {
+          continue;
+        }
+        ret = ret.concat(
+          ReactTestUtils.findAllInRenderedTree(renderedChildren[key], test)
+        );
+      }
+    } else if (ReactTestUtils.isCompositeComponent(inst)) {
+      ret = ret.concat(
+        ReactTestUtils.findAllInRenderedTree(inst._renderedComponent, test)
+      );
+    }
+    return ret;
+  },
+
+  /**
+   * Finds all instance of components in the rendered tree that are DOM
+   * components with the class name matching `className`.
+   * @return an array of all the matches.
+   */
+  scryRenderedDOMComponentsWithClass: function(root, className) {
+    return ReactTestUtils.findAllInRenderedTree(root, function(inst) {
+      var instClassName = inst.props.className;
+      return ReactTestUtils.isDOMComponent(inst) && (
+        instClassName &&
+        (' ' + instClassName + ' ').indexOf(' ' + className + ' ') !== -1
+      );
+    });
+  },
+
+  /**
+   * Like scryRenderedDOMComponentsWithClass but expects there to be one result,
+   * and returns that one result, or throws exception if there is any other
+   * number of matches besides one.
+   * @return {!ReactDOMComponent} The one match.
+   */
+  findRenderedDOMComponentWithClass: function(root, className) {
+    var all =
+      ReactTestUtils.scryRenderedDOMComponentsWithClass(root, className);
+    if (all.length !== 1) {
+      throw new Error('Did not find exactly one match for class:' + className);
+    }
+    return all[0];
+  },
+
+
+  /**
+   * Finds all instance of components in the rendered tree that are DOM
+   * components with the tag name matching `tagName`.
+   * @return an array of all the matches.
+   */
+  scryRenderedDOMComponentsWithTag: function(root, tagName) {
+    return ReactTestUtils.findAllInRenderedTree(root, function(inst) {
+      return ReactTestUtils.isDOMComponent(inst) &&
+            inst.tagName === tagName.toUpperCase();
+    });
+  },
+
+  /**
+   * Like scryRenderedDOMComponentsWithTag but expects there to be one result,
+   * and returns that one result, or throws exception if there is any other
+   * number of matches besides one.
+   * @return {!ReactDOMComponent} The one match.
+   */
+  findRenderedDOMComponentWithTag: function(root, tagName) {
+    var all = ReactTestUtils.scryRenderedDOMComponentsWithTag(root, tagName);
+    if (all.length !== 1) {
+      throw new Error('Did not find exactly one match for tag:' + tagName);
+    }
+    return all[0];
+  },
+
+
+  /**
+   * Finds all instances of components with type equal to `componentType`.
+   * @return an array of all the matches.
+   */
+  scryRenderedComponentsWithType: function(root, componentType) {
+    return ReactTestUtils.findAllInRenderedTree(root, function(inst) {
+      return ReactTestUtils.isCompositeComponentWithType(
+        inst,
+        componentType
+      );
+    });
+  },
+
+  /**
+   * Same as `scryRenderedComponentsWithType` but expects there to be one result
+   * and returns that one result, or throws exception if there is any other
+   * number of matches besides one.
+   * @return {!ReactComponent} The one match.
+   */
+  findRenderedComponentWithType: function(root, componentType) {
+    var all = ReactTestUtils.scryRenderedComponentsWithType(
+      root,
+      componentType
+    );
+    if (all.length !== 1) {
+      throw new Error(
+        'Did not find exactly one match for componentType:' + componentType
+      );
+    }
+    return all[0];
+  },
+
+  /**
+   * Pass a mocked component module to this method to augment it with
+   * useful methods that allow it to be used as a dummy React component.
+   * Instead of rendering as usual, the component will become a simple
+   * <div> containing any provided children.
+   *
+   * @param {object} module the mock function object exported from a
+   *                        module that defines the component to be mocked
+   * @param {?string} mockTagName optional dummy root tag name to return
+   *                              from render method (overrides
+   *                              module.mockTagName if provided)
+   * @return {object} the ReactTestUtils object (for chaining)
+   */
+  mockComponent: function(module, mockTagName) {
+    mockTagName = mockTagName || module.mockTagName || "div";
+
+    var ConvenienceConstructor = React.createClass({displayName: "ConvenienceConstructor",
+      render: function() {
+        return React.createElement(
+          mockTagName,
+          null,
+          this.props.children
+        );
+      }
+    });
+
+    module.mockImplementation(ConvenienceConstructor);
+
+    module.type = ConvenienceConstructor.type;
+    module.isReactLegacyFactory = true;
+
+    return this;
+  },
+
+  /**
+   * Simulates a top level event being dispatched from a raw event that occured
+   * on an `Element` node.
+   * @param topLevelType {Object} A type from `EventConstants.topLevelTypes`
+   * @param {!Element} node The dom to simulate an event occurring on.
+   * @param {?Event} fakeNativeEvent Fake native event to use in SyntheticEvent.
+   */
+  simulateNativeEventOnNode: function(topLevelType, node, fakeNativeEvent) {
+    fakeNativeEvent.target = node;
+    ReactBrowserEventEmitter.ReactEventListener.dispatchEvent(
+      topLevelType,
+      fakeNativeEvent
+    );
+  },
+
+  /**
+   * Simulates a top level event being dispatched from a raw event that occured
+   * on the `ReactDOMComponent` `comp`.
+   * @param topLevelType {Object} A type from `EventConstants.topLevelTypes`.
+   * @param comp {!ReactDOMComponent}
+   * @param {?Event} fakeNativeEvent Fake native event to use in SyntheticEvent.
+   */
+  simulateNativeEventOnDOMComponent: function(
+      topLevelType,
+      comp,
+      fakeNativeEvent) {
+    ReactTestUtils.simulateNativeEventOnNode(
+      topLevelType,
+      comp.getDOMNode(),
+      fakeNativeEvent
+    );
+  },
+
+  nativeTouchData: function(x, y) {
+    return {
+      touches: [
+        {pageX: x, pageY: y}
+      ]
+    };
+  },
+
+  Simulate: null,
+  SimulateNative: {}
+};
+
+/**
+ * Exports:
+ *
+ * - `ReactTestUtils.Simulate.click(Element/ReactDOMComponent)`
+ * - `ReactTestUtils.Simulate.mouseMove(Element/ReactDOMComponent)`
+ * - `ReactTestUtils.Simulate.change(Element/ReactDOMComponent)`
+ * - ... (All keys from event plugin `eventTypes` objects)
+ */
+function makeSimulator(eventType) {
+  return function(domComponentOrNode, eventData) {
+    var node;
+    if (ReactTestUtils.isDOMComponent(domComponentOrNode)) {
+      node = domComponentOrNode.getDOMNode();
+    } else if (domComponentOrNode.tagName) {
+      node = domComponentOrNode;
+    }
+
+    var fakeNativeEvent = new Event();
+    fakeNativeEvent.target = node;
+    // We don't use SyntheticEvent.getPooled in order to not have to worry about
+    // properly destroying any properties assigned from `eventData` upon release
+    var event = new SyntheticEvent(
+      ReactBrowserEventEmitter.eventNameDispatchConfigs[eventType],
+      ReactMount.getID(node),
+      fakeNativeEvent
+    );
+    assign(event, eventData);
+    EventPropagators.accumulateTwoPhaseDispatches(event);
+
+    ReactUpdates.batchedUpdates(function() {
+      EventPluginHub.enqueueEvents(event);
+      EventPluginHub.processEventQueue();
+    });
+  };
+}
+
+function buildSimulators() {
+  ReactTestUtils.Simulate = {};
+
+  var eventType;
+  for (eventType in ReactBrowserEventEmitter.eventNameDispatchConfigs) {
+    /**
+     * @param {!Element || ReactDOMComponent} domComponentOrNode
+     * @param {?object} eventData Fake event data to use in SyntheticEvent.
+     */
+    ReactTestUtils.Simulate[eventType] = makeSimulator(eventType);
+  }
+}
+
+// Rebuild ReactTestUtils.Simulate whenever event plugins are injected
+var oldInjectEventPluginOrder = EventPluginHub.injection.injectEventPluginOrder;
+EventPluginHub.injection.injectEventPluginOrder = function() {
+  oldInjectEventPluginOrder.apply(this, arguments);
+  buildSimulators();
+};
+var oldInjectEventPlugins = EventPluginHub.injection.injectEventPluginsByName;
+EventPluginHub.injection.injectEventPluginsByName = function() {
+  oldInjectEventPlugins.apply(this, arguments);
+  buildSimulators();
+};
+
+buildSimulators();
+
+/**
+ * Exports:
+ *
+ * - `ReactTestUtils.SimulateNative.click(Element/ReactDOMComponent)`
+ * - `ReactTestUtils.SimulateNative.mouseMove(Element/ReactDOMComponent)`
+ * - `ReactTestUtils.SimulateNative.mouseIn/ReactDOMComponent)`
+ * - `ReactTestUtils.SimulateNative.mouseOut(Element/ReactDOMComponent)`
+ * - ... (All keys from `EventConstants.topLevelTypes`)
+ *
+ * Note: Top level event types are a subset of the entire set of handler types
+ * (which include a broader set of "synthetic" events). For example, onDragDone
+ * is a synthetic event. Except when testing an event plugin or React's event
+ * handling code specifically, you probably want to use ReactTestUtils.Simulate
+ * to dispatch synthetic events.
+ */
+
+function makeNativeSimulator(eventType) {
+  return function(domComponentOrNode, nativeEventData) {
+    var fakeNativeEvent = new Event(eventType);
+    assign(fakeNativeEvent, nativeEventData);
+    if (ReactTestUtils.isDOMComponent(domComponentOrNode)) {
+      ReactTestUtils.simulateNativeEventOnDOMComponent(
+        eventType,
+        domComponentOrNode,
+        fakeNativeEvent
+      );
+    } else if (!!domComponentOrNode.tagName) {
+      // Will allow on actual dom nodes.
+      ReactTestUtils.simulateNativeEventOnNode(
+        eventType,
+        domComponentOrNode,
+        fakeNativeEvent
+      );
+    }
+  };
+}
+
+var eventType;
+for (eventType in topLevelTypes) {
+  // Event type is stored as 'topClick' - we transform that to 'click'
+  var convenienceName = eventType.indexOf('top') === 0 ?
+    eventType.charAt(3).toLowerCase() + eventType.substr(4) : eventType;
+  /**
+   * @param {!Element || ReactDOMComponent} domComponentOrNode
+   * @param {?Event} nativeEventData Fake native event to use in SyntheticEvent.
+   */
+  ReactTestUtils.SimulateNative[convenienceName] =
+    makeNativeSimulator(eventType);
+}
+
+module.exports = ReactTestUtils;
+
+},{"./EventConstants":81,"./EventPluginHub":83,"./EventPropagators":86,"./Object.assign":93,"./React":95,"./ReactBrowserEventEmitter":97,"./ReactElement":122,"./ReactMount":134,"./ReactTextComponent":151,"./ReactUpdates":155,"./SyntheticEvent":164}],151:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -18457,7 +25665,408 @@ ReactTextComponentFactory.type = ReactTextComponent;
 
 module.exports = ReactTextComponentFactory;
 
-},{"./DOMPropertyOperations":23,"./Object.assign":38,"./ReactComponent":44,"./ReactElement":64,"./escapeTextForBrowser":121}],91:[function(require,module,exports){
+},{"./DOMPropertyOperations":77,"./Object.assign":93,"./ReactComponent":101,"./ReactElement":122,"./escapeTextForBrowser":188}],152:[function(require,module,exports){
+/**
+ * Copyright 2013-2014, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+ * @typechecks static-only
+ * @providesModule ReactTransitionChildMapping
+ */
+
+"use strict";
+
+var ReactChildren = require("./ReactChildren");
+
+var ReactTransitionChildMapping = {
+  /**
+   * Given `this.props.children`, return an object mapping key to child. Just
+   * simple syntactic sugar around ReactChildren.map().
+   *
+   * @param {*} children `this.props.children`
+   * @return {object} Mapping of key to child
+   */
+  getChildMapping: function(children) {
+    return ReactChildren.map(children, function(child) {
+      return child;
+    });
+  },
+
+  /**
+   * When you're adding or removing children some may be added or removed in the
+   * same render pass. We want to show *both* since we want to simultaneously
+   * animate elements in and out. This function takes a previous set of keys
+   * and a new set of keys and merges them with its best guess of the correct
+   * ordering. In the future we may expose some of the utilities in
+   * ReactMultiChild to make this easy, but for now React itself does not
+   * directly have this concept of the union of prevChildren and nextChildren
+   * so we implement it here.
+   *
+   * @param {object} prev prev children as returned from
+   * `ReactTransitionChildMapping.getChildMapping()`.
+   * @param {object} next next children as returned from
+   * `ReactTransitionChildMapping.getChildMapping()`.
+   * @return {object} a key set that contains all keys in `prev` and all keys
+   * in `next` in a reasonable order.
+   */
+  mergeChildMappings: function(prev, next) {
+    prev = prev || {};
+    next = next || {};
+
+    function getValueForKey(key) {
+      if (next.hasOwnProperty(key)) {
+        return next[key];
+      } else {
+        return prev[key];
+      }
+    }
+
+    // For each key of `next`, the list of keys to insert before that key in
+    // the combined list
+    var nextKeysPending = {};
+
+    var pendingKeys = [];
+    for (var prevKey in prev) {
+      if (next.hasOwnProperty(prevKey)) {
+        if (pendingKeys.length) {
+          nextKeysPending[prevKey] = pendingKeys;
+          pendingKeys = [];
+        }
+      } else {
+        pendingKeys.push(prevKey);
+      }
+    }
+
+    var i;
+    var childMapping = {};
+    for (var nextKey in next) {
+      if (nextKeysPending.hasOwnProperty(nextKey)) {
+        for (i = 0; i < nextKeysPending[nextKey].length; i++) {
+          var pendingNextKey = nextKeysPending[nextKey][i];
+          childMapping[nextKeysPending[nextKey][i]] = getValueForKey(
+            pendingNextKey
+          );
+        }
+      }
+      childMapping[nextKey] = getValueForKey(nextKey);
+    }
+
+    // Finally, add the keys which didn't appear before any key in `next`
+    for (i = 0; i < pendingKeys.length; i++) {
+      childMapping[pendingKeys[i]] = getValueForKey(pendingKeys[i]);
+    }
+
+    return childMapping;
+  }
+};
+
+module.exports = ReactTransitionChildMapping;
+
+},{"./ReactChildren":100}],153:[function(require,module,exports){
+/**
+ * Copyright 2013-2014, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+ * @providesModule ReactTransitionEvents
+ */
+
+"use strict";
+
+var ExecutionEnvironment = require("./ExecutionEnvironment");
+
+/**
+ * EVENT_NAME_MAP is used to determine which event fired when a
+ * transition/animation ends, based on the style property used to
+ * define that event.
+ */
+var EVENT_NAME_MAP = {
+  transitionend: {
+    'transition': 'transitionend',
+    'WebkitTransition': 'webkitTransitionEnd',
+    'MozTransition': 'mozTransitionEnd',
+    'OTransition': 'oTransitionEnd',
+    'msTransition': 'MSTransitionEnd'
+  },
+
+  animationend: {
+    'animation': 'animationend',
+    'WebkitAnimation': 'webkitAnimationEnd',
+    'MozAnimation': 'mozAnimationEnd',
+    'OAnimation': 'oAnimationEnd',
+    'msAnimation': 'MSAnimationEnd'
+  }
+};
+
+var endEvents = [];
+
+function detectEvents() {
+  var testEl = document.createElement('div');
+  var style = testEl.style;
+
+  // On some platforms, in particular some releases of Android 4.x,
+  // the un-prefixed "animation" and "transition" properties are defined on the
+  // style object but the events that fire will still be prefixed, so we need
+  // to check if the un-prefixed events are useable, and if not remove them
+  // from the map
+  if (!('AnimationEvent' in window)) {
+    delete EVENT_NAME_MAP.animationend.animation;
+  }
+
+  if (!('TransitionEvent' in window)) {
+    delete EVENT_NAME_MAP.transitionend.transition;
+  }
+
+  for (var baseEventName in EVENT_NAME_MAP) {
+    var baseEvents = EVENT_NAME_MAP[baseEventName];
+    for (var styleName in baseEvents) {
+      if (styleName in style) {
+        endEvents.push(baseEvents[styleName]);
+        break;
+      }
+    }
+  }
+}
+
+if (ExecutionEnvironment.canUseDOM) {
+  detectEvents();
+}
+
+// We use the raw {add|remove}EventListener() call because EventListener
+// does not know how to remove event listeners and we really should
+// clean up. Also, these events are not triggered in older browsers
+// so we should be A-OK here.
+
+function addEventListener(node, eventName, eventListener) {
+  node.addEventListener(eventName, eventListener, false);
+}
+
+function removeEventListener(node, eventName, eventListener) {
+  node.removeEventListener(eventName, eventListener, false);
+}
+
+var ReactTransitionEvents = {
+  addEndEventListener: function(node, eventListener) {
+    if (endEvents.length === 0) {
+      // If CSS transitions are not supported, trigger an "end animation"
+      // event immediately.
+      window.setTimeout(eventListener, 0);
+      return;
+    }
+    endEvents.forEach(function(endEvent) {
+      addEventListener(node, endEvent, eventListener);
+    });
+  },
+
+  removeEndEventListener: function(node, eventListener) {
+    if (endEvents.length === 0) {
+      return;
+    }
+    endEvents.forEach(function(endEvent) {
+      removeEventListener(node, endEvent, eventListener);
+    });
+  }
+};
+
+module.exports = ReactTransitionEvents;
+
+},{"./ExecutionEnvironment":87}],154:[function(require,module,exports){
+/**
+ * Copyright 2013-2014, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+ * @providesModule ReactTransitionGroup
+ */
+
+"use strict";
+
+var React = require("./React");
+var ReactTransitionChildMapping = require("./ReactTransitionChildMapping");
+
+var assign = require("./Object.assign");
+var cloneWithProps = require("./cloneWithProps");
+var emptyFunction = require("./emptyFunction");
+
+var ReactTransitionGroup = React.createClass({
+  displayName: 'ReactTransitionGroup',
+
+  propTypes: {
+    component: React.PropTypes.any,
+    childFactory: React.PropTypes.func
+  },
+
+  getDefaultProps: function() {
+    return {
+      component: 'span',
+      childFactory: emptyFunction.thatReturnsArgument
+    };
+  },
+
+  getInitialState: function() {
+    return {
+      children: ReactTransitionChildMapping.getChildMapping(this.props.children)
+    };
+  },
+
+  componentWillReceiveProps: function(nextProps) {
+    var nextChildMapping = ReactTransitionChildMapping.getChildMapping(
+      nextProps.children
+    );
+    var prevChildMapping = this.state.children;
+
+    this.setState({
+      children: ReactTransitionChildMapping.mergeChildMappings(
+        prevChildMapping,
+        nextChildMapping
+      )
+    });
+
+    var key;
+
+    for (key in nextChildMapping) {
+      var hasPrev = prevChildMapping && prevChildMapping.hasOwnProperty(key);
+      if (nextChildMapping[key] && !hasPrev &&
+          !this.currentlyTransitioningKeys[key]) {
+        this.keysToEnter.push(key);
+      }
+    }
+
+    for (key in prevChildMapping) {
+      var hasNext = nextChildMapping && nextChildMapping.hasOwnProperty(key);
+      if (prevChildMapping[key] && !hasNext &&
+          !this.currentlyTransitioningKeys[key]) {
+        this.keysToLeave.push(key);
+      }
+    }
+
+    // If we want to someday check for reordering, we could do it here.
+  },
+
+  componentWillMount: function() {
+    this.currentlyTransitioningKeys = {};
+    this.keysToEnter = [];
+    this.keysToLeave = [];
+  },
+
+  componentDidUpdate: function() {
+    var keysToEnter = this.keysToEnter;
+    this.keysToEnter = [];
+    keysToEnter.forEach(this.performEnter);
+
+    var keysToLeave = this.keysToLeave;
+    this.keysToLeave = [];
+    keysToLeave.forEach(this.performLeave);
+  },
+
+  performEnter: function(key) {
+    this.currentlyTransitioningKeys[key] = true;
+
+    var component = this.refs[key];
+
+    if (component.componentWillEnter) {
+      component.componentWillEnter(
+        this._handleDoneEntering.bind(this, key)
+      );
+    } else {
+      this._handleDoneEntering(key);
+    }
+  },
+
+  _handleDoneEntering: function(key) {
+    var component = this.refs[key];
+    if (component.componentDidEnter) {
+      component.componentDidEnter();
+    }
+
+    delete this.currentlyTransitioningKeys[key];
+
+    var currentChildMapping = ReactTransitionChildMapping.getChildMapping(
+      this.props.children
+    );
+
+    if (!currentChildMapping || !currentChildMapping.hasOwnProperty(key)) {
+      // This was removed before it had fully entered. Remove it.
+      this.performLeave(key);
+    }
+  },
+
+  performLeave: function(key) {
+    this.currentlyTransitioningKeys[key] = true;
+
+    var component = this.refs[key];
+    if (component.componentWillLeave) {
+      component.componentWillLeave(this._handleDoneLeaving.bind(this, key));
+    } else {
+      // Note that this is somewhat dangerous b/c it calls setState()
+      // again, effectively mutating the component before all the work
+      // is done.
+      this._handleDoneLeaving(key);
+    }
+  },
+
+  _handleDoneLeaving: function(key) {
+    var component = this.refs[key];
+
+    if (component.componentDidLeave) {
+      component.componentDidLeave();
+    }
+
+    delete this.currentlyTransitioningKeys[key];
+
+    var currentChildMapping = ReactTransitionChildMapping.getChildMapping(
+      this.props.children
+    );
+
+    if (currentChildMapping && currentChildMapping.hasOwnProperty(key)) {
+      // This entered again before it fully left. Add it again.
+      this.performEnter(key);
+    } else {
+      var newChildren = assign({}, this.state.children);
+      delete newChildren[key];
+      this.setState({children: newChildren});
+    }
+  },
+
+  render: function() {
+    // TODO: we could get rid of the need for the wrapper node
+    // by cloning a single child
+    var childrenToRender = {};
+    for (var key in this.state.children) {
+      var child = this.state.children[key];
+      if (child) {
+        // You may need to apply reactive updates to a child as it is leaving.
+        // The normal React way to do it won't work since the child will have
+        // already been removed. In case you need this behavior you can provide
+        // a childFactory function to wrap every child, even the ones that are
+        // leaving.
+        childrenToRender[key] = cloneWithProps(
+          this.props.childFactory(child),
+          {ref: key}
+        );
+      }
+    }
+    return React.createElement(
+      this.props.component,
+      this.props,
+      childrenToRender
+    );
+  }
+});
+
+module.exports = ReactTransitionGroup;
+
+},{"./Object.assign":93,"./React":95,"./ReactTransitionChildMapping":152,"./cloneWithProps":178,"./emptyFunction":186}],155:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2014, Facebook, Inc.
@@ -18747,7 +26356,61 @@ var ReactUpdates = {
 module.exports = ReactUpdates;
 
 }).call(this,require('_process'))
-},{"./CallbackQueue":17,"./Object.assign":38,"./PooledClass":39,"./ReactCurrentOwner":48,"./ReactPerf":80,"./Transaction":107,"./invariant":138,"./warning":157,"_process":8}],92:[function(require,module,exports){
+},{"./CallbackQueue":71,"./Object.assign":93,"./PooledClass":94,"./ReactCurrentOwner":106,"./ReactPerf":139,"./Transaction":172,"./invariant":205,"./warning":225,"_process":17}],156:[function(require,module,exports){
+(function (process){
+/**
+ * Copyright 2013-2014, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+ * @providesModule ReactWithAddons
+ */
+
+/**
+ * This module exists purely in the open source project, and is meant as a way
+ * to create a separate standalone build of React. This build has "addons", or
+ * functionality we've built and think might be useful but doesn't have a good
+ * place to live inside React core.
+ */
+
+"use strict";
+
+var LinkedStateMixin = require("./LinkedStateMixin");
+var React = require("./React");
+var ReactComponentWithPureRenderMixin =
+  require("./ReactComponentWithPureRenderMixin");
+var ReactCSSTransitionGroup = require("./ReactCSSTransitionGroup");
+var ReactTransitionGroup = require("./ReactTransitionGroup");
+var ReactUpdates = require("./ReactUpdates");
+
+var cx = require("./cx");
+var cloneWithProps = require("./cloneWithProps");
+var update = require("./update");
+
+React.addons = {
+  CSSTransitionGroup: ReactCSSTransitionGroup,
+  LinkedStateMixin: LinkedStateMixin,
+  PureRenderMixin: ReactComponentWithPureRenderMixin,
+  TransitionGroup: ReactTransitionGroup,
+
+  batchedUpdates: ReactUpdates.batchedUpdates,
+  classSet: cx,
+  cloneWithProps: cloneWithProps,
+  update: update
+};
+
+if ("production" !== process.env.NODE_ENV) {
+  React.addons.Perf = require("./ReactDefaultPerf");
+  React.addons.TestUtils = require("./ReactTestUtils");
+}
+
+module.exports = React;
+
+}).call(this,require('_process'))
+},{"./LinkedStateMixin":89,"./React":95,"./ReactCSSTransitionGroup":98,"./ReactComponentWithPureRenderMixin":103,"./ReactDefaultPerf":120,"./ReactTestUtils":150,"./ReactTransitionGroup":154,"./ReactUpdates":155,"./cloneWithProps":178,"./cx":183,"./update":224,"_process":17}],157:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -18839,7 +26502,7 @@ var SVGDOMPropertyConfig = {
 
 module.exports = SVGDOMPropertyConfig;
 
-},{"./DOMProperty":22}],93:[function(require,module,exports){
+},{"./DOMProperty":76}],158:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -19034,7 +26697,7 @@ var SelectEventPlugin = {
 
 module.exports = SelectEventPlugin;
 
-},{"./EventConstants":27,"./EventPropagators":32,"./ReactInputSelection":71,"./SyntheticEvent":99,"./getActiveElement":125,"./isTextInputElement":141,"./keyOf":145,"./shallowEqual":153}],94:[function(require,module,exports){
+},{"./EventConstants":81,"./EventPropagators":86,"./ReactInputSelection":129,"./SyntheticEvent":164,"./getActiveElement":192,"./isTextInputElement":208,"./keyOf":212,"./shallowEqual":220}],159:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -19065,7 +26728,7 @@ var ServerReactRootIndex = {
 
 module.exports = ServerReactRootIndex;
 
-},{}],95:[function(require,module,exports){
+},{}],160:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2014, Facebook, Inc.
@@ -19493,7 +27156,7 @@ var SimpleEventPlugin = {
 module.exports = SimpleEventPlugin;
 
 }).call(this,require('_process'))
-},{"./EventConstants":27,"./EventPluginUtils":31,"./EventPropagators":32,"./SyntheticClipboardEvent":96,"./SyntheticDragEvent":98,"./SyntheticEvent":99,"./SyntheticFocusEvent":100,"./SyntheticKeyboardEvent":102,"./SyntheticMouseEvent":103,"./SyntheticTouchEvent":104,"./SyntheticUIEvent":105,"./SyntheticWheelEvent":106,"./getEventCharCode":126,"./invariant":138,"./keyOf":145,"./warning":157,"_process":8}],96:[function(require,module,exports){
+},{"./EventConstants":81,"./EventPluginUtils":85,"./EventPropagators":86,"./SyntheticClipboardEvent":161,"./SyntheticDragEvent":163,"./SyntheticEvent":164,"./SyntheticFocusEvent":165,"./SyntheticKeyboardEvent":167,"./SyntheticMouseEvent":168,"./SyntheticTouchEvent":169,"./SyntheticUIEvent":170,"./SyntheticWheelEvent":171,"./getEventCharCode":193,"./invariant":205,"./keyOf":212,"./warning":225,"_process":17}],161:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -19539,7 +27202,7 @@ SyntheticEvent.augmentClass(SyntheticClipboardEvent, ClipboardEventInterface);
 module.exports = SyntheticClipboardEvent;
 
 
-},{"./SyntheticEvent":99}],97:[function(require,module,exports){
+},{"./SyntheticEvent":164}],162:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -19585,7 +27248,7 @@ SyntheticEvent.augmentClass(
 module.exports = SyntheticCompositionEvent;
 
 
-},{"./SyntheticEvent":99}],98:[function(require,module,exports){
+},{"./SyntheticEvent":164}],163:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -19624,7 +27287,7 @@ SyntheticMouseEvent.augmentClass(SyntheticDragEvent, DragEventInterface);
 
 module.exports = SyntheticDragEvent;
 
-},{"./SyntheticMouseEvent":103}],99:[function(require,module,exports){
+},{"./SyntheticMouseEvent":168}],164:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -19782,7 +27445,7 @@ PooledClass.addPoolingTo(SyntheticEvent, PooledClass.threeArgumentPooler);
 
 module.exports = SyntheticEvent;
 
-},{"./Object.assign":38,"./PooledClass":39,"./emptyFunction":119,"./getEventTarget":129}],100:[function(require,module,exports){
+},{"./Object.assign":93,"./PooledClass":94,"./emptyFunction":186,"./getEventTarget":196}],165:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -19821,7 +27484,7 @@ SyntheticUIEvent.augmentClass(SyntheticFocusEvent, FocusEventInterface);
 
 module.exports = SyntheticFocusEvent;
 
-},{"./SyntheticUIEvent":105}],101:[function(require,module,exports){
+},{"./SyntheticUIEvent":170}],166:[function(require,module,exports){
 /**
  * Copyright 2013 Facebook, Inc.
  * All rights reserved.
@@ -19868,7 +27531,7 @@ SyntheticEvent.augmentClass(
 module.exports = SyntheticInputEvent;
 
 
-},{"./SyntheticEvent":99}],102:[function(require,module,exports){
+},{"./SyntheticEvent":164}],167:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -19955,7 +27618,7 @@ SyntheticUIEvent.augmentClass(SyntheticKeyboardEvent, KeyboardEventInterface);
 
 module.exports = SyntheticKeyboardEvent;
 
-},{"./SyntheticUIEvent":105,"./getEventCharCode":126,"./getEventKey":127,"./getEventModifierState":128}],103:[function(require,module,exports){
+},{"./SyntheticUIEvent":170,"./getEventCharCode":193,"./getEventKey":194,"./getEventModifierState":195}],168:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -20038,7 +27701,7 @@ SyntheticUIEvent.augmentClass(SyntheticMouseEvent, MouseEventInterface);
 
 module.exports = SyntheticMouseEvent;
 
-},{"./SyntheticUIEvent":105,"./ViewportMetrics":108,"./getEventModifierState":128}],104:[function(require,module,exports){
+},{"./SyntheticUIEvent":170,"./ViewportMetrics":173,"./getEventModifierState":195}],169:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -20086,7 +27749,7 @@ SyntheticUIEvent.augmentClass(SyntheticTouchEvent, TouchEventInterface);
 
 module.exports = SyntheticTouchEvent;
 
-},{"./SyntheticUIEvent":105,"./getEventModifierState":128}],105:[function(require,module,exports){
+},{"./SyntheticUIEvent":170,"./getEventModifierState":195}],170:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -20148,7 +27811,7 @@ SyntheticEvent.augmentClass(SyntheticUIEvent, UIEventInterface);
 
 module.exports = SyntheticUIEvent;
 
-},{"./SyntheticEvent":99,"./getEventTarget":129}],106:[function(require,module,exports){
+},{"./SyntheticEvent":164,"./getEventTarget":196}],171:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -20209,7 +27872,7 @@ SyntheticMouseEvent.augmentClass(SyntheticWheelEvent, WheelEventInterface);
 
 module.exports = SyntheticWheelEvent;
 
-},{"./SyntheticMouseEvent":103}],107:[function(require,module,exports){
+},{"./SyntheticMouseEvent":168}],172:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2014, Facebook, Inc.
@@ -20450,7 +28113,7 @@ var Transaction = {
 module.exports = Transaction;
 
 }).call(this,require('_process'))
-},{"./invariant":138,"_process":8}],108:[function(require,module,exports){
+},{"./invariant":205,"_process":17}],173:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -20482,7 +28145,7 @@ var ViewportMetrics = {
 
 module.exports = ViewportMetrics;
 
-},{"./getUnboundedScrollPosition":134}],109:[function(require,module,exports){
+},{"./getUnboundedScrollPosition":201}],174:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2014, Facebook, Inc.
@@ -20548,7 +28211,7 @@ function accumulateInto(current, next) {
 module.exports = accumulateInto;
 
 }).call(this,require('_process'))
-},{"./invariant":138,"_process":8}],110:[function(require,module,exports){
+},{"./invariant":205,"_process":17}],175:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -20582,7 +28245,7 @@ function adler32(data) {
 
 module.exports = adler32;
 
-},{}],111:[function(require,module,exports){
+},{}],176:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -20614,7 +28277,7 @@ function camelize(string) {
 
 module.exports = camelize;
 
-},{}],112:[function(require,module,exports){
+},{}],177:[function(require,module,exports){
 /**
  * Copyright 2014, Facebook, Inc.
  * All rights reserved.
@@ -20656,7 +28319,66 @@ function camelizeStyleName(string) {
 
 module.exports = camelizeStyleName;
 
-},{"./camelize":111}],113:[function(require,module,exports){
+},{"./camelize":176}],178:[function(require,module,exports){
+(function (process){
+/**
+ * Copyright 2013-2014, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+ * @typechecks
+ * @providesModule cloneWithProps
+ */
+
+"use strict";
+
+var ReactElement = require("./ReactElement");
+var ReactPropTransferer = require("./ReactPropTransferer");
+
+var keyOf = require("./keyOf");
+var warning = require("./warning");
+
+var CHILDREN_PROP = keyOf({children: null});
+
+/**
+ * Sometimes you want to change the props of a child passed to you. Usually
+ * this is to add a CSS class.
+ *
+ * @param {object} child child component you'd like to clone
+ * @param {object} props props you'd like to modify. They will be merged
+ * as if you used `transferPropsTo()`.
+ * @return {object} a clone of child with props merged in.
+ */
+function cloneWithProps(child, props) {
+  if ("production" !== process.env.NODE_ENV) {
+    ("production" !== process.env.NODE_ENV ? warning(
+      !child.ref,
+      'You are calling cloneWithProps() on a child with a ref. This is ' +
+      'dangerous because you\'re creating a new child which will not be ' +
+      'added as a ref to its parent.'
+    ) : null);
+  }
+
+  var newProps = ReactPropTransferer.mergeProps(props, child.props);
+
+  // Use `child.props.children` if it is provided.
+  if (!newProps.hasOwnProperty(CHILDREN_PROP) &&
+      child.props.hasOwnProperty(CHILDREN_PROP)) {
+    newProps.children = child.props.children;
+  }
+
+  // The current API doesn't retain _owner and _context, which is why this
+  // doesn't use ReactElement.cloneAndReplaceProps.
+  return ReactElement.createElement(child.type, newProps);
+}
+
+module.exports = cloneWithProps;
+
+}).call(this,require('_process'))
+},{"./ReactElement":122,"./ReactPropTransferer":140,"./keyOf":212,"./warning":225,"_process":17}],179:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -20700,7 +28422,7 @@ function containsNode(outerNode, innerNode) {
 
 module.exports = containsNode;
 
-},{"./isTextNode":142}],114:[function(require,module,exports){
+},{"./isTextNode":209}],180:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -20786,7 +28508,7 @@ function createArrayFrom(obj) {
 
 module.exports = createArrayFrom;
 
-},{"./toArray":155}],115:[function(require,module,exports){
+},{"./toArray":222}],181:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2014, Facebook, Inc.
@@ -20847,7 +28569,7 @@ function createFullPageComponent(tag) {
 module.exports = createFullPageComponent;
 
 }).call(this,require('_process'))
-},{"./ReactCompositeComponent":46,"./ReactElement":64,"./invariant":138,"_process":8}],116:[function(require,module,exports){
+},{"./ReactCompositeComponent":104,"./ReactElement":122,"./invariant":205,"_process":17}],182:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2014, Facebook, Inc.
@@ -20937,7 +28659,46 @@ function createNodesFromMarkup(markup, handleScript) {
 module.exports = createNodesFromMarkup;
 
 }).call(this,require('_process'))
-},{"./ExecutionEnvironment":33,"./createArrayFrom":114,"./getMarkupWrap":130,"./invariant":138,"_process":8}],117:[function(require,module,exports){
+},{"./ExecutionEnvironment":87,"./createArrayFrom":180,"./getMarkupWrap":197,"./invariant":205,"_process":17}],183:[function(require,module,exports){
+/**
+ * Copyright 2013-2014, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+ * @providesModule cx
+ */
+
+/**
+ * This function is used to mark string literals representing CSS class names
+ * so that they can be transformed statically. This allows for modularization
+ * and minification of CSS class names.
+ *
+ * In static_upstream, this function is actually implemented, but it should
+ * eventually be replaced with something more descriptive, and the transform
+ * that is used in the main stack should be ported for use elsewhere.
+ *
+ * @param string|object className to modularize, or an object of key/values.
+ *                      In the object case, the values are conditions that
+ *                      determine if the className keys should be included.
+ * @param [string ...]  Variable list of classNames in the string case.
+ * @return string       Renderable space-separated CSS className.
+ */
+function cx(classNames) {
+  if (typeof classNames == 'object') {
+    return Object.keys(classNames).filter(function(className) {
+      return classNames[className];
+    }).join(' ');
+  } else {
+    return Array.prototype.join.call(arguments, ' ');
+  }
+}
+
+module.exports = cx;
+
+},{}],184:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -20995,7 +28756,7 @@ function dangerousStyleValue(name, value) {
 
 module.exports = dangerousStyleValue;
 
-},{"./CSSProperty":15}],118:[function(require,module,exports){
+},{"./CSSProperty":69}],185:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2014, Facebook, Inc.
@@ -21046,7 +28807,7 @@ function deprecated(namespace, oldName, newName, ctx, fn) {
 module.exports = deprecated;
 
 }).call(this,require('_process'))
-},{"./Object.assign":38,"./warning":157,"_process":8}],119:[function(require,module,exports){
+},{"./Object.assign":93,"./warning":225,"_process":17}],186:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -21080,7 +28841,7 @@ emptyFunction.thatReturnsArgument = function(arg) { return arg; };
 
 module.exports = emptyFunction;
 
-},{}],120:[function(require,module,exports){
+},{}],187:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2014, Facebook, Inc.
@@ -21104,7 +28865,7 @@ if ("production" !== process.env.NODE_ENV) {
 module.exports = emptyObject;
 
 }).call(this,require('_process'))
-},{"_process":8}],121:[function(require,module,exports){
+},{"_process":17}],188:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -21145,7 +28906,7 @@ function escapeTextForBrowser(text) {
 
 module.exports = escapeTextForBrowser;
 
-},{}],122:[function(require,module,exports){
+},{}],189:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2014, Facebook, Inc.
@@ -21214,7 +28975,7 @@ function flattenChildren(children) {
 module.exports = flattenChildren;
 
 }).call(this,require('_process'))
-},{"./ReactTextComponent":90,"./traverseAllChildren":156,"./warning":157,"_process":8}],123:[function(require,module,exports){
+},{"./ReactTextComponent":151,"./traverseAllChildren":223,"./warning":225,"_process":17}],190:[function(require,module,exports){
 /**
  * Copyright 2014, Facebook, Inc.
  * All rights reserved.
@@ -21243,7 +29004,7 @@ function focusNode(node) {
 
 module.exports = focusNode;
 
-},{}],124:[function(require,module,exports){
+},{}],191:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -21274,7 +29035,7 @@ var forEachAccumulated = function(arr, cb, scope) {
 
 module.exports = forEachAccumulated;
 
-},{}],125:[function(require,module,exports){
+},{}],192:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -21303,7 +29064,7 @@ function getActiveElement() /*?DOMElement*/ {
 
 module.exports = getActiveElement;
 
-},{}],126:[function(require,module,exports){
+},{}],193:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -21355,7 +29116,7 @@ function getEventCharCode(nativeEvent) {
 
 module.exports = getEventCharCode;
 
-},{}],127:[function(require,module,exports){
+},{}],194:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -21460,7 +29221,7 @@ function getEventKey(nativeEvent) {
 
 module.exports = getEventKey;
 
-},{"./getEventCharCode":126}],128:[function(require,module,exports){
+},{"./getEventCharCode":193}],195:[function(require,module,exports){
 /**
  * Copyright 2013 Facebook, Inc.
  * All rights reserved.
@@ -21507,7 +29268,7 @@ function getEventModifierState(nativeEvent) {
 
 module.exports = getEventModifierState;
 
-},{}],129:[function(require,module,exports){
+},{}],196:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -21538,7 +29299,7 @@ function getEventTarget(nativeEvent) {
 
 module.exports = getEventTarget;
 
-},{}],130:[function(require,module,exports){
+},{}],197:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2014, Facebook, Inc.
@@ -21655,7 +29416,7 @@ function getMarkupWrap(nodeName) {
 module.exports = getMarkupWrap;
 
 }).call(this,require('_process'))
-},{"./ExecutionEnvironment":33,"./invariant":138,"_process":8}],131:[function(require,module,exports){
+},{"./ExecutionEnvironment":87,"./invariant":205,"_process":17}],198:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -21730,7 +29491,7 @@ function getNodeForCharacterOffset(root, offset) {
 
 module.exports = getNodeForCharacterOffset;
 
-},{}],132:[function(require,module,exports){
+},{}],199:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -21765,7 +29526,7 @@ function getReactRootElementInContainer(container) {
 
 module.exports = getReactRootElementInContainer;
 
-},{}],133:[function(require,module,exports){
+},{}],200:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -21802,7 +29563,7 @@ function getTextContentAccessor() {
 
 module.exports = getTextContentAccessor;
 
-},{"./ExecutionEnvironment":33}],134:[function(require,module,exports){
+},{"./ExecutionEnvironment":87}],201:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -21842,7 +29603,7 @@ function getUnboundedScrollPosition(scrollable) {
 
 module.exports = getUnboundedScrollPosition;
 
-},{}],135:[function(require,module,exports){
+},{}],202:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -21875,7 +29636,7 @@ function hyphenate(string) {
 
 module.exports = hyphenate;
 
-},{}],136:[function(require,module,exports){
+},{}],203:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -21916,7 +29677,7 @@ function hyphenateStyleName(string) {
 
 module.exports = hyphenateStyleName;
 
-},{"./hyphenate":135}],137:[function(require,module,exports){
+},{"./hyphenate":202}],204:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2014, Facebook, Inc.
@@ -22030,7 +29791,7 @@ function instantiateReactComponent(element, parentCompositeType) {
 module.exports = instantiateReactComponent;
 
 }).call(this,require('_process'))
-},{"./ReactElement":64,"./ReactEmptyComponent":66,"./ReactLegacyElement":73,"./ReactNativeComponent":78,"./warning":157,"_process":8}],138:[function(require,module,exports){
+},{"./ReactElement":122,"./ReactEmptyComponent":124,"./ReactLegacyElement":131,"./ReactNativeComponent":137,"./warning":225,"_process":17}],205:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2014, Facebook, Inc.
@@ -22087,7 +29848,7 @@ var invariant = function(condition, format, a, b, c, d, e, f) {
 module.exports = invariant;
 
 }).call(this,require('_process'))
-},{"_process":8}],139:[function(require,module,exports){
+},{"_process":17}],206:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -22152,7 +29913,7 @@ function isEventSupported(eventNameSuffix, capture) {
 
 module.exports = isEventSupported;
 
-},{"./ExecutionEnvironment":33}],140:[function(require,module,exports){
+},{"./ExecutionEnvironment":87}],207:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -22180,7 +29941,7 @@ function isNode(object) {
 
 module.exports = isNode;
 
-},{}],141:[function(require,module,exports){
+},{}],208:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -22224,7 +29985,7 @@ function isTextInputElement(elem) {
 
 module.exports = isTextInputElement;
 
-},{}],142:[function(require,module,exports){
+},{}],209:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -22249,7 +30010,7 @@ function isTextNode(object) {
 
 module.exports = isTextNode;
 
-},{"./isNode":140}],143:[function(require,module,exports){
+},{"./isNode":207}],210:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -22290,7 +30051,7 @@ function joinClasses(className/*, ... */) {
 
 module.exports = joinClasses;
 
-},{}],144:[function(require,module,exports){
+},{}],211:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2014, Facebook, Inc.
@@ -22345,7 +30106,7 @@ var keyMirror = function(obj) {
 module.exports = keyMirror;
 
 }).call(this,require('_process'))
-},{"./invariant":138,"_process":8}],145:[function(require,module,exports){
+},{"./invariant":205,"_process":17}],212:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -22381,7 +30142,7 @@ var keyOf = function(oneKeyObj) {
 
 module.exports = keyOf;
 
-},{}],146:[function(require,module,exports){
+},{}],213:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -22434,7 +30195,7 @@ function mapObject(object, callback, context) {
 
 module.exports = mapObject;
 
-},{}],147:[function(require,module,exports){
+},{}],214:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -22468,7 +30229,7 @@ function memoizeStringOnly(callback) {
 
 module.exports = memoizeStringOnly;
 
-},{}],148:[function(require,module,exports){
+},{}],215:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2014, Facebook, Inc.
@@ -22502,7 +30263,7 @@ function monitorCodeUse(eventName, data) {
 module.exports = monitorCodeUse;
 
 }).call(this,require('_process'))
-},{"./invariant":138,"_process":8}],149:[function(require,module,exports){
+},{"./invariant":205,"_process":17}],216:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2014, Facebook, Inc.
@@ -22542,7 +30303,7 @@ function onlyChild(children) {
 module.exports = onlyChild;
 
 }).call(this,require('_process'))
-},{"./ReactElement":64,"./invariant":138,"_process":8}],150:[function(require,module,exports){
+},{"./ReactElement":122,"./invariant":205,"_process":17}],217:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -22570,7 +30331,7 @@ if (ExecutionEnvironment.canUseDOM) {
 
 module.exports = performance || {};
 
-},{"./ExecutionEnvironment":33}],151:[function(require,module,exports){
+},{"./ExecutionEnvironment":87}],218:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -22598,7 +30359,7 @@ var performanceNow = performance.now.bind(performance);
 
 module.exports = performanceNow;
 
-},{"./performance":150}],152:[function(require,module,exports){
+},{"./performance":217}],219:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -22676,7 +30437,7 @@ if (ExecutionEnvironment.canUseDOM) {
 
 module.exports = setInnerHTML;
 
-},{"./ExecutionEnvironment":33}],153:[function(require,module,exports){
+},{"./ExecutionEnvironment":87}],220:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -22720,7 +30481,7 @@ function shallowEqual(objA, objB) {
 
 module.exports = shallowEqual;
 
-},{}],154:[function(require,module,exports){
+},{}],221:[function(require,module,exports){
 /**
  * Copyright 2013-2014, Facebook, Inc.
  * All rights reserved.
@@ -22758,7 +30519,7 @@ function shouldUpdateReactComponent(prevElement, nextElement) {
 
 module.exports = shouldUpdateReactComponent;
 
-},{}],155:[function(require,module,exports){
+},{}],222:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2014, Facebook, Inc.
@@ -22830,7 +30591,7 @@ function toArray(obj) {
 module.exports = toArray;
 
 }).call(this,require('_process'))
-},{"./invariant":138,"_process":8}],156:[function(require,module,exports){
+},{"./invariant":205,"_process":17}],223:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2014, Facebook, Inc.
@@ -23013,7 +30774,175 @@ function traverseAllChildren(children, callback, traverseContext) {
 module.exports = traverseAllChildren;
 
 }).call(this,require('_process'))
-},{"./ReactElement":64,"./ReactInstanceHandles":72,"./invariant":138,"_process":8}],157:[function(require,module,exports){
+},{"./ReactElement":122,"./ReactInstanceHandles":130,"./invariant":205,"_process":17}],224:[function(require,module,exports){
+(function (process){
+/**
+ * Copyright 2013-2014, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+ * @providesModule update
+ */
+
+"use strict";
+
+var assign = require("./Object.assign");
+var keyOf = require("./keyOf");
+var invariant = require("./invariant");
+
+function shallowCopy(x) {
+  if (Array.isArray(x)) {
+    return x.concat();
+  } else if (x && typeof x === 'object') {
+    return assign(new x.constructor(), x);
+  } else {
+    return x;
+  }
+}
+
+var COMMAND_PUSH = keyOf({$push: null});
+var COMMAND_UNSHIFT = keyOf({$unshift: null});
+var COMMAND_SPLICE = keyOf({$splice: null});
+var COMMAND_SET = keyOf({$set: null});
+var COMMAND_MERGE = keyOf({$merge: null});
+var COMMAND_APPLY = keyOf({$apply: null});
+
+var ALL_COMMANDS_LIST = [
+  COMMAND_PUSH,
+  COMMAND_UNSHIFT,
+  COMMAND_SPLICE,
+  COMMAND_SET,
+  COMMAND_MERGE,
+  COMMAND_APPLY
+];
+
+var ALL_COMMANDS_SET = {};
+
+ALL_COMMANDS_LIST.forEach(function(command) {
+  ALL_COMMANDS_SET[command] = true;
+});
+
+function invariantArrayCase(value, spec, command) {
+  ("production" !== process.env.NODE_ENV ? invariant(
+    Array.isArray(value),
+    'update(): expected target of %s to be an array; got %s.',
+    command,
+    value
+  ) : invariant(Array.isArray(value)));
+  var specValue = spec[command];
+  ("production" !== process.env.NODE_ENV ? invariant(
+    Array.isArray(specValue),
+    'update(): expected spec of %s to be an array; got %s. ' +
+    'Did you forget to wrap your parameter in an array?',
+    command,
+    specValue
+  ) : invariant(Array.isArray(specValue)));
+}
+
+function update(value, spec) {
+  ("production" !== process.env.NODE_ENV ? invariant(
+    typeof spec === 'object',
+    'update(): You provided a key path to update() that did not contain one ' +
+    'of %s. Did you forget to include {%s: ...}?',
+    ALL_COMMANDS_LIST.join(', '),
+    COMMAND_SET
+  ) : invariant(typeof spec === 'object'));
+
+  if (spec.hasOwnProperty(COMMAND_SET)) {
+    ("production" !== process.env.NODE_ENV ? invariant(
+      Object.keys(spec).length === 1,
+      'Cannot have more than one key in an object with %s',
+      COMMAND_SET
+    ) : invariant(Object.keys(spec).length === 1));
+
+    return spec[COMMAND_SET];
+  }
+
+  var nextValue = shallowCopy(value);
+
+  if (spec.hasOwnProperty(COMMAND_MERGE)) {
+    var mergeObj = spec[COMMAND_MERGE];
+    ("production" !== process.env.NODE_ENV ? invariant(
+      mergeObj && typeof mergeObj === 'object',
+      'update(): %s expects a spec of type \'object\'; got %s',
+      COMMAND_MERGE,
+      mergeObj
+    ) : invariant(mergeObj && typeof mergeObj === 'object'));
+    ("production" !== process.env.NODE_ENV ? invariant(
+      nextValue && typeof nextValue === 'object',
+      'update(): %s expects a target of type \'object\'; got %s',
+      COMMAND_MERGE,
+      nextValue
+    ) : invariant(nextValue && typeof nextValue === 'object'));
+    assign(nextValue, spec[COMMAND_MERGE]);
+  }
+
+  if (spec.hasOwnProperty(COMMAND_PUSH)) {
+    invariantArrayCase(value, spec, COMMAND_PUSH);
+    spec[COMMAND_PUSH].forEach(function(item) {
+      nextValue.push(item);
+    });
+  }
+
+  if (spec.hasOwnProperty(COMMAND_UNSHIFT)) {
+    invariantArrayCase(value, spec, COMMAND_UNSHIFT);
+    spec[COMMAND_UNSHIFT].forEach(function(item) {
+      nextValue.unshift(item);
+    });
+  }
+
+  if (spec.hasOwnProperty(COMMAND_SPLICE)) {
+    ("production" !== process.env.NODE_ENV ? invariant(
+      Array.isArray(value),
+      'Expected %s target to be an array; got %s',
+      COMMAND_SPLICE,
+      value
+    ) : invariant(Array.isArray(value)));
+    ("production" !== process.env.NODE_ENV ? invariant(
+      Array.isArray(spec[COMMAND_SPLICE]),
+      'update(): expected spec of %s to be an array of arrays; got %s. ' +
+      'Did you forget to wrap your parameters in an array?',
+      COMMAND_SPLICE,
+      spec[COMMAND_SPLICE]
+    ) : invariant(Array.isArray(spec[COMMAND_SPLICE])));
+    spec[COMMAND_SPLICE].forEach(function(args) {
+      ("production" !== process.env.NODE_ENV ? invariant(
+        Array.isArray(args),
+        'update(): expected spec of %s to be an array of arrays; got %s. ' +
+        'Did you forget to wrap your parameters in an array?',
+        COMMAND_SPLICE,
+        spec[COMMAND_SPLICE]
+      ) : invariant(Array.isArray(args)));
+      nextValue.splice.apply(nextValue, args);
+    });
+  }
+
+  if (spec.hasOwnProperty(COMMAND_APPLY)) {
+    ("production" !== process.env.NODE_ENV ? invariant(
+      typeof spec[COMMAND_APPLY] === 'function',
+      'update(): expected spec of %s to be a function; got %s.',
+      COMMAND_APPLY,
+      spec[COMMAND_APPLY]
+    ) : invariant(typeof spec[COMMAND_APPLY] === 'function'));
+    nextValue = spec[COMMAND_APPLY](nextValue);
+  }
+
+  for (var k in spec) {
+    if (!(ALL_COMMANDS_SET.hasOwnProperty(k) && ALL_COMMANDS_SET[k])) {
+      nextValue[k] = update(value[k], spec[k]);
+    }
+  }
+
+  return nextValue;
+}
+
+module.exports = update;
+
+}).call(this,require('_process'))
+},{"./Object.assign":93,"./invariant":205,"./keyOf":212,"_process":17}],225:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2014, Facebook, Inc.
@@ -23058,10 +30987,10 @@ if ("production" !== process.env.NODE_ENV) {
 module.exports = warning;
 
 }).call(this,require('_process'))
-},{"./emptyFunction":119,"_process":8}],158:[function(require,module,exports){
+},{"./emptyFunction":186,"_process":17}],226:[function(require,module,exports){
 module.exports = require('./lib/React');
 
-},{"./lib/React":40}],159:[function(require,module,exports){
+},{"./lib/React":95}],227:[function(require,module,exports){
 /**
  * Module dependencies.
  */
@@ -24144,7 +32073,7 @@ request.put = function(url, data, fn){
 
 module.exports = request;
 
-},{"emitter":160,"reduce":161}],160:[function(require,module,exports){
+},{"emitter":228,"reduce":229}],228:[function(require,module,exports){
 
 /**
  * Expose `Emitter`.
@@ -24310,7 +32239,7 @@ Emitter.prototype.hasListeners = function(event){
   return !! this.listeners(event).length;
 };
 
-},{}],161:[function(require,module,exports){
+},{}],229:[function(require,module,exports){
 
 /**
  * Reduce `arr` with `fn`.
@@ -24335,4 +32264,4 @@ module.exports = function(arr, fn, initial){
   
   return curr;
 };
-},{}]},{},[4]);
+},{}]},{},[5]);

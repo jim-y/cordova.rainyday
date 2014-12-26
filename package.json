@@ -7,8 +7,11 @@
     "serve": "cd app/ && echo 'RUN IN BROWSER -> http://localhost:8080/android/www/' && cordova serve 8080",
     "start": "watchify app/www/js/app.js -o app/www/js/rainyday.bundle.js -v -d",
     "lint": "jsxhint -c .jshintrc app/www/js/**/*",
-    "dist": "browserify app/www/js/app.js > app/www/js/rainyday.bundle.js",
-    "deploy": "cd app/ && cordova build android && cordova run"
+    "clean": "rm -rf app/www/css/style.css app/www/js/rainyday.bundle.js",
+    "less": "lessc app/www/css/style.less > app/www/css/style.css",
+    "bundle": "browserify app/www/js/app.js > app/www/js/rainyday.bundle.js",
+    "dist": "npm run clean && npm run less && npm run bundle",
+    "deploy": "cd app/ && cordova build android && cordova run android"
   },
   "repository": {
     "type": "git",
@@ -37,7 +40,10 @@
     "flux": "^2.0.1",
     "hammerjs": "^2.0.4",
     "immutable": "^3.4.1",
+    "material-ui": "^0.4.0",
     "react": "^0.12.2",
+    "react-router": "^0.11.6",
+    "react-tap-event-plugin": "^0.1.3",
     "superagent": "^0.21.0"
   },
   "devDependencies": {

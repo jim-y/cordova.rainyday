@@ -1,8 +1,9 @@
 'use strict';
 
 module.exports = {
-  ACTION_TYPES: {
-    INITIALIZE: 'INITIALIZE'
+  NAVIGATION: {
+    OPEN: 'OPEN',
+    CLOSE: 'CLOSE'
   },
   CHANGE_EVENT: 'change'
 };
