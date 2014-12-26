@@ -28,8 +28,9 @@ test
 # Users Environment Variables
 .lock-wscript
 
-# Application specific
+# Generated sources
 app/www/css/style.css
+app/www/js/rainyday.bundle.js
 
 .DS_Store
 app/platforms/android

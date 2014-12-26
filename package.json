@@ -7,6 +7,7 @@
     "serve": "cd app/ && echo 'RUN IN BROWSER -> http://localhost:8080/android/www/' && cordova serve 8080",
     "start": "watchify app/www/js/app.js -o app/www/js/rainyday.bundle.js -v -d",
     "lint": "jsxhint -c .jshintrc app/www/js/**/*",
+    "airbnb": "echo 'jscs currently does not support esnext well' && jscs -v -e -c airbnb.json app/www/js/*",
     "clean": "rm -rf app/www/css/style.css app/www/js/rainyday.bundle.js",
     "less": "lessc app/www/css/style.less > app/www/css/style.css",
     "bundle": "browserify app/www/js/app.js > app/www/js/rainyday.bundle.js",
