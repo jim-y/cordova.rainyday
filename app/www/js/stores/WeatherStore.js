@@ -16,7 +16,7 @@ class WeatherStore extends EventEmitter {
     _dispatchToken = AppDispatcher.register((action) => {
       switch (action.type) {
 
-        case AppConstants.ACTION_TYPES.INITIALIZE:
+        case AppConstants.INITIALIZE:
           this.initialize(action.payload);
           this.emit(CHANGE_EVENT);
           break;

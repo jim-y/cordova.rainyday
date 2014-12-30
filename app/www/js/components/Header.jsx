@@ -1,29 +1,28 @@
 'use strict';
 
 var React = require('react'),
-  Icon = require('material-ui').Icon,
+  { AppBar, IconButton } = require('material-ui'),
   ActionCreators = require('../ActionCreators'),
-  AppConstants = require('../AppConstants');
+  AppConstants = require('../AppConstants'),
+  Breadcrumb = require('./Breadcrumb.jsx'),
+  Header;
 
-var Header = React.createClass({
+Header = React.createClass({
 
   render: function() {
     return (
       <header>
-        <div className="iconWrapper">
-          <Icon
-            id="menuIcon"
-            icon="navigation-menu"
-            onTouchTap={this._onNavIconClick}
-          />
-        </div>
-        <div className="iconWrapper navIconWrapper">
-          <Icon
-            id="previousPage"
-            icon="navigation-expand-less"
-            onTouchTap={this._onPrevPageClick}
-          />
-        </div>
+          <AppBar className="toolbar" zDepth={0}>
+            <Breadcrumb/>
+            <IconButton
+              className="toolbar-right"
+              icon="navigation-more-vert"
+              />
+            <IconButton
+              className="toolbar-right"
+              icon="action-search"
+              />
+          </AppBar>
       </header>
     );
   },
@@ -33,10 +32,9 @@ var Header = React.createClass({
   },
 
   _onPrevPageClick: function() {
-    window.alert('Previous Page');
+    this.refs.prevPageMsg.show();
   }
 
 });
 
 module.exports = Header;
-

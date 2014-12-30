@@ -2,30 +2,37 @@
 
 var React = require('react'),
   Hammer = require('hammerjs'),
-  AppConstants = require('../AppConstants'),
-  ActionCreators = require('../ActionCreators'),
+  RouteHandler = require('react-router').RouteHandler,
+  AppCanvas = require('material-ui').AppCanvas,
   Header = require('./Header.jsx'),
   Navigation = require('./Navigation.jsx'),
-  Content = require('./Content.jsx'),
   Footer = require('./Footer.jsx'),
+  Content = require('./Content.jsx'),
+  AppConstants = require('../AppConstants'),
   weatherStore = require('../stores/WeatherStore'),
-  swipeMixin = require('./mixins/SwipeMixin'),
-  appGuestures = new Hammer(document.body);
+  guestureMixin = require('./mixins/GuestureMixin'),
+  mc = new Hammer(document.body);
 
 var App = React.createClass({
 
-  mixins: [swipeMixin],
+  mixins: [guestureMixin],
+
+  getInitialState: function() {
+    return {
+      showLoadingPage: true
+    };
+  },
 
   componentDidMount: function() {
-    appGuestures.on('swiperight', swipeMixin.swipeRight);
-    appGuestures.on('swipeleft', swipeMixin.swipeLeft);
+    mc.on('swiperight', guestureMixin.swipeRight);
+    mc.on('swipeleft', guestureMixin.swipeLeft);
     /* WeatherStore */
     weatherStore.on(AppConstants.CHANGE_EVENT, this._onChange);
   },
 
   componentWillUnmount: function() {
-    appGuestures.off('swiperight', swipeMixin.swipeRight);
-    appGuestures.off('swipeleft', swipeMixin.swipeLeft);
+    mc.off('swiperight', guestureMixin.swipeRight);
+    mc.off('swipeleft', guestureMixin.swipeLeft);
     /* WeatherStore */
     weatherStore.removeListener(AppConstants.CHANGE_EVENT, this._onChange);
   },
@@ -36,12 +43,14 @@ var App = React.createClass({
 
   render: function() {
     return (
-      <div>
-        <Navigation />
-        <Header />
-        <Content />
-        <Footer />
-      </div>
+      <AppCanvas predefinedLayout={1}>
+        <Navigation/>
+        <Header/>
+        <main role="main" id="main">
+          <RouteHandler/>
+        </main>
+        <Footer/>
+      </AppCanvas>
     );
   }
 

@@ -5,5 +5,6 @@ module.exports = {
     OPEN: 'OPEN',
     CLOSE: 'CLOSE'
   },
+  INITIALIZE: 'INITIALIZE',
   CHANGE_EVENT: 'change'
 };

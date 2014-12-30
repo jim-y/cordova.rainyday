@@ -2,12 +2,15 @@
 
 var React = require('react'),
   LeftNav = require('material-ui').LeftNav,
-  menuItems = require('../assets/menuItems'),
+  NavigationMixin = require('react-router').Navigation,
+  navigationItems = require('../assets/navigationItems'),
   navigationStore = require('../stores/NavigationStore'),
   AppConstants = require('../AppConstants'),
   Navigation;
 
 Navigation = React.createClass({
+
+  mixins: [NavigationMixin],
 
   componentDidMount: function() {
     navigationStore.on(AppConstants.CHANGE_EVENT, this._navigationStateChanged);
@@ -24,7 +27,7 @@ Navigation = React.createClass({
           ref="leftNav"
           docked={false}
           isInitiallyOpen={false}
-          menuItems={menuItems}
+          menuItems={navigationItems}
           onChange={this._onMenuItemClicked} />
       </nav>
     );
@@ -39,8 +42,9 @@ Navigation = React.createClass({
     }
   },
 
-  _onMenuItemClicked: function(e, key, payload) {
-    window.alert(event.type + '\n' + key + '\n' + payload);
+  _onMenuItemClicked: function(e, menuItemIndex, menuItemData) {
+    var route = menuItemData.route;
+    this.transitionTo(route);
   }
 
 });

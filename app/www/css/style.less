@@ -5,6 +5,7 @@
 @footer-height: @header-height;
 @weatherIconSize: 128px;
 @test: 44;
+@white: #FFF;
 
 * {
   margin: 0;
@@ -17,11 +18,23 @@ body {
   background-color: @grey-50;
 }
 header {
-  height: @header-height;
-  background-color: @pink-600;
-
-  #previousPage, #menuIcon {
-    padding: 10px;
+  .toolbar {
+    background-color: @pink-600;
+    color: @grey-50;
+    .mui-font-style-headline {
+      color: @grey-50;
+      float: left;
+      a {
+        color: @grey-50;
+        text-decoration: none;
+      }
+      .headline-separator {
+        color: fade(@grey-50,20%);
+      }
+    }
+    .toolbar-right {
+      float: right;
+    }
   }
 }
 footer {
@@ -30,7 +43,6 @@ footer {
   bottom: 0;
   height: @footer-height;
   width: 100%;
-
   #nextPage, .fakeIcon {
     padding: 10px;
   }
@@ -47,30 +59,27 @@ header, footer {
     margin-left: -(@header-height/2);
   }
 }
-
-#centered {
-  display: table-cell;
-  vertical-align: middle;
-
+.content {
+  display: table;
+  height: 100%;
+  width: 100%;
+  .centered {
+    display: table-cell;
+    vertical-align: middle;
+    section {
+      margin: auto auto;
+      width: 70%
+    }
+  }
+}
+.weatherInfo {
   .pictureWrapper {
     margin: @header-height auto @header-height auto;
     width: @weatherIconSize;
     height: @weatherIconSize;
-
     img {
       width: @weatherIconSize;
       height: @weatherIconSize;
     }
-  }
-}
-
-#content {
-  display: table;
-  height: 100%;
-  width: 100%;
-
-  section {
-    margin: auto auto;
-    width: 70%
   }
 }

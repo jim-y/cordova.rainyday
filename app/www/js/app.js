@@ -1,9 +1,10 @@
 'use strict';
 
 var React = require('react'),
-  request = require('superagent'),
+  Router = require('react-router'),
   injectTapEventPlugin = require('react-tap-event-plugin'),
-  App = React.createFactory(require('./components/AppComponent.jsx')),
+  ActionCreators = require('./ActionCreators'),
+  routes = require('./routes'),
   config = require('../appConfig.json');
 
 /**
@@ -22,28 +23,13 @@ function onRenderError(err) {
 }
 
 /**
- * Success callback for weather api call. On succes we render the app to the DOM
- * @param  {Object} resp
- */
-function onSuccessWeatherCall(resp) {
-  React.render(
-    App({
-      config: config,
-      data: resp.body
-    }),
-    document.getElementById('container'),
-    onRenderError
-  );
-}
-
-/**
  * Callback method for successful geoLocation call.
  * @param  {Object} position
  */
 function onGeoLocationSuccess(position) {
   var url,
-      lat,
-      lon;
+    lat,
+    lon;
 
   if (position && position.coords.latitude && position.coords.longitude) {
 
@@ -52,9 +38,9 @@ function onGeoLocationSuccess(position) {
     url = ['http://', config.openweathermap.baseUrl, lat, '&', lon,
       '&APPID=', config.openweathermap.key].join('');
 
-    console.log(position);
-
-    request.get(url, null, onSuccessWeatherCall);
+    ActionCreators.initialize({
+      url: url
+    });
   }
 }
 
@@ -73,10 +59,19 @@ function onGeoLocationError(err) {
  */
 function initialize(/* event */) {
   injectTapEventPlugin();
-  navigator.geolocation.getCurrentPosition(
-    onGeoLocationSuccess,
-    onGeoLocationError
-  );
+
+  Router.run(routes, function(Handler) {
+    React.render(
+      <Handler/>,
+      document.body,
+      onRenderError
+    );
+  });
+
+  //navigator.geolocation.getCurrentPosition(
+  //  onGeoLocationSuccess,
+  //  onGeoLocationError
+  //);
 }
 
 /**

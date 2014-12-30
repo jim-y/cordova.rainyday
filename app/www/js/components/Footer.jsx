@@ -1,13 +1,17 @@
 'use strict';
 
 var React = require('react'),
-  Icon = require('material-ui').Icon,
-  IconButton = require('material-ui').IconButton,
+  { Icon, Dialog } = require('material-ui'),
   Footer;
 
 Footer = React.createClass({
 
   render: function() {
+    var dialogActions = [
+      {
+        text: 'CLOSE'
+      }
+    ];
     return (
       <footer>
         <div className="iconWrapper">
@@ -24,14 +28,20 @@ Footer = React.createClass({
             onTouchTap={this._onNextPageClick}
             />
         </div>
+        <Dialog
+          ref="nextPageMsg"
+          title="Next>"
+          actions={dialogActions}>
+
+          Next page should float in.
+
+        </Dialog>
       </footer>
     );
   },
 
   _onNextPageClick: function() {
-    window.setTimeout(function() {
-      window.alert('Next Page');
-    }, 1500);
+    this.refs.nextPageMsg.show();
   }
 
 });

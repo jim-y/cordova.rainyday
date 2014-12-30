@@ -10,8 +10,9 @@
     "airbnb": "echo 'jscs currently does not support esnext well' && jscs -v -e -c airbnb.json app/www/js/*",
     "clean": "rm -rf app/www/css/style.css app/www/js/rainyday.bundle.js",
     "less": "lessc app/www/css/style.less > app/www/css/style.css",
-    "bundle": "browserify app/www/js/app.js > app/www/js/rainyday.bundle.js",
-    "dist": "npm run clean && npm run less && npm run bundle",
+    "bundle": "browserify --debug app/www/js/app.js > app/www/js/rainyday.bundle.js",
+    "dist": "npm run lint && npm run clean && npm run less && npm run bundle",
+    "continious": "npm run lint & npm run clean & npm run less & npm run start",
     "deploy": "cd app/ && cordova build android && cordova run android"
   },
   "repository": {
@@ -55,6 +56,7 @@
     "watchify": "^2.2.1"
   },
   "browserify": {
+    "debug": true,
     "transform": [
       [
         "reactify",

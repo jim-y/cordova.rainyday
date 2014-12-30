@@ -1,17 +1,16 @@
 'use strict';
 
 var React = require('react'),
+  Centered = require('./Centered.jsx'),
   WeatherInfo = require('./WeatherInfo.jsx'),
   Content;
 
 Content = React.createClass({
   render: function() {
     return (
-      <main id="content" role="main">
-        <div id="centered">
-          <WeatherInfo />
-        </div>
-      </main>
+      <Centered>
+        <WeatherInfo />
+      </Centered>
     );
   }
 });

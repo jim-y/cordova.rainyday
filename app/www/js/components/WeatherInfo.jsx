@@ -13,12 +13,12 @@ var React = require('react'),
 WeatherInfo = React.createClass({
   render: function() {
     return (
-      <section>
+      <div className="weatherInfo">
         <div className="pictureWrapper">
           <img src="img/cloudy19.svg"/>
         </div>
         <Menu autoWidth={false} menuItems={iconMenuItems} />
-      </section>
+      </div>
     );
   }
 });
