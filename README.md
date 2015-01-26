@@ -3,6 +3,8 @@ cordova.rainyday
 
 A cordova based hybrid mobile weather application written in nodejs. My first hybrid application, and also my first cordova app. 
 
+![Beta screenshot with breadcrumb and navigation icons.](https://raw.githubusercontent.com/jim-y/cordova.rainyday/master/assets/localhost!8080!android!www!%23-1366x768.png)
+
 I plan to use these technologies within the app:
 
 * browserify
